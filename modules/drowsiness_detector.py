@@ -210,7 +210,7 @@ class DrowsinessDetector:
         Returns:
             tuple: (灰階影像, 臉部矩形, 特徵點)
         """   
-        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        
         
         # 轉換為灰階
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
