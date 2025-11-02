@@ -210,16 +210,26 @@ class DrowsinessDetector:
         Returns:
             tuple: (灰階影像, 臉部矩形, 特徵點)
         """
+        # ========== 新增：旋轉畫面 180 度 ==========
+        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        # ==========================================
+        
         # 轉換為灰階
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # 偵測臉部
-        faces = self.detector(gray, 0)
+        # 增強對比度（提高偵測率）
+        gray = cv2.equalizeHist(gray)
+        
+        # 偵測臉部（增加上採樣次數提高準確度）
+        faces = self.detector(gray, 1)  # 改成 1 提高偵測率
         
         if len(faces) == 0:
             return gray, None, None
         
-        # 只處理第一張臉
+        # 選擇最大的臉
+        if len(faces) > 1:
+            faces = sorted(faces, key=lambda x: x.width() * x.height(), reverse=True)
+        
         face = faces[0]
         
         # 獲取面部特徵點
