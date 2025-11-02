@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>瞌睡監控 - 智能防瞌睡系統</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        color: white;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .main-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+      }
+
+      .video-panel,
+      .info-panel {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .video-container {
+        position: relative;
+        width: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #000;
+      }
+
+      #videoFeed {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .status-badge {
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 1.2em;
+        margin: 15px 0;
+      }
+
+      .status-alert {
+        background: #28a745;
+        color: white;
+      }
+      .status-tired {
+        background: #ffc107;
+        color: black;
+      }
+      .status-yawning {
+        background: #ff9800;
+        color: white;
+      }
+      .status-drowsy {
+        background: #dc3545;
+        color: white;
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .stat-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      .stat-label {
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 5px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1em;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .btn-start {
+        background: #28a745;
+        color: white;
+      }
+
+      .btn-stop {
+        background: #dc3545;
+        color: white;
+      }
+
+      .btn-reset {
+        background: #6c757d;
+        color: white;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .alert-banner {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 20px 30px;
+        background: #dc3545;
+        color: white;
+        border-radius: 10px;
+        font-weight: bold;
+        font-size: 1.2em;
+        display: none;
+        animation: slideIn 0.3s;
+        z-index: 1000;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .main-content {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎯 智能防瞌睡監控系統</h1>
+        <p>即時瞌睡偵測與警報</p>
+      </div>
+
+      <div class="main-content">
+        <!-- 視訊面板 -->
+        <div class="video-panel">
+          <h2>📹 即時監控</h2>
+          <div class="video-container">
+            <img id="videoFeed" src="/video_feed" alt="視訊串流" />
+          </div>
+
+          <div class="controls">
+            <button class="btn btn-start" onclick="startMonitoring()">
+              ▶️ 開始監控
+            </button>
+            <button class="btn btn-stop" onclick="stopMonitoring()">
+              ⏸️ 停止監控
+            </button>
+            <button class="btn btn-reset" onclick="resetStats()">
+              🔄 重置統計
+            </button>
+          </div>
+        </div>
+
+        <!-- 資訊面板 -->
+        <div class="info-panel">
+          <h2>📊 即時資訊</h2>
+
+          <!-- 狀態顯示 -->
+          <div style="text-align: center">
+            <span id="statusBadge" class="status-badge status-alert"
+              >準備中...</span
+            >
+          </div>
+
+          <!-- 即時數據 -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="earValue">0.000</div>
+              <div class="stat-label">眼睛長寬比 (EAR)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="marValue">0.000</div>
+              <div class="stat-label">嘴巴長寬比 (MAR)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="eyeCounter">0</div>
+              <div class="stat-label">閉眼幀數</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="yawnCounter">0</div>
+              <div class="stat-label">打哈欠幀數</div>
+            </div>
+          </div>
+
+          <!-- 事件統計 -->
+          <h3 style="margin-top: 30px; margin-bottom: 15px">📈 事件統計</h3>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="totalDrowsy" style="color: #dc3545">
+                0
+              </div>
+              <div class="stat-label">瞌睡事件</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="totalYawns" style="color: #ff9800">
+                0
+              </div>
+              <div class="stat-label">打哈欠事件</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="totalFrames">0</div>
+              <div class="stat-label">總幀數</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="fps">0</div>
+              <div class="stat-label">FPS</div>
+            </div>
+          </div>
+
+          <!-- 運行時間 -->
+          <div style="margin-top: 20px; text-align: center; color: #666">
+            <p>
+              運行時間:
+              <span id="runtime" style="font-weight: bold">00:00:00</span>
+            </p>
+            <p style="font-size: 0.9em; margin-top: 5px">
+              連接狀態:
+              <span id="connectionStatus" style="color: #28a745">●</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 警報橫幅 -->
+    <div id="alertBanner" class="alert-banner">⚠️ 瞌睡警報！請保持清醒！</div>
+
+    <script>
+      // WebSocket 連接
+      const socket = io();
+
+      // 狀態對應
+      const statusConfig = {
+        Alert: { class: 'status-alert', text: '✅ 清醒' },
+        Tired: { class: 'status-tired', text: '😴 疲倦' },
+        Yawning: { class: 'status-yawning', text: '🥱 打哈欠' },
+        Drowsy: { class: 'status-drowsy', text: '⚠️ 瞌睡中' },
+        'No Face': { class: 'status-badge', text: '❌ 未偵測到臉部' },
+      };
+
+      // 運行時間計時器
+      let runtimeInterval = null;
+      let startTime = null;
+
+      // WebSocket 事件處理
+      socket.on('connect', function () {
+        console.log('✅ 已連接到伺服器');
+        $('#connectionStatus').css('color', '#28a745').text('●');
+      });
+
+      socket.on('disconnect', function () {
+        console.log('❌ 已斷開連接');
+        $('#connectionStatus').css('color', '#dc3545').text('●');
+      });
+
+      socket.on('detection_result', function (data) {
+        // 更新狀態標籤
+        const status = statusConfig[data.state];
+        $('#statusBadge')
+          .removeClass()
+          .addClass('status-badge ' + status.class)
+          .text(status.text);
+
+        // 更新即時數據
+        $('#earValue').text(data.ear.toFixed(3));
+        $('#marValue').text(data.mar.toFixed(3));
+        $('#eyeCounter').text(data.eye_counter);
+        $('#yawnCounter').text(data.yawn_counter);
+
+        // 更新統計
+        $('#totalDrowsy').text(data.total_drowsy);
+        $('#totalYawns').text(data.total_yawns);
+        $('#fps').text(data.fps);
+      });
+
+      socket.on('drowsy_alert', function (data) {
+        console.warn('⚠️ 瞌睡警報！', data);
+        showAlert();
+
+        // 可選：播放音效
+        // playAlertSound();
+      });
+
+      socket.on('yawn_warning', function (data) {
+        console.log('🥱 打哈欠警告', data);
+      });
+
+      // 功能函數
+      function startMonitoring() {
+        $.post('/api/start', function (response) {
+          console.log('✅', response.message);
+          startTime = Date.now();
+          if (!runtimeInterval) {
+            runtimeInterval = setInterval(updateRuntime, 1000);
+          }
+        });
+      }
+
+      function stopMonitoring() {
+        $.post('/api/stop', function (response) {
+          console.log('⏸️', response.message);
+          if (runtimeInterval) {
+            clearInterval(runtimeInterval);
+            runtimeInterval = null;
+          }
+        });
+      }
+
+      function resetStats() {
+        if (confirm('確定要重置統計數據嗎？')) {
+          $.post('/api/reset_stats', function (response) {
+            console.log('🔄', response.message);
+            // 重置顯示
+            $('#totalDrowsy').text('0');
+            $('#totalYawns').text('0');
+            $('#totalFrames').text('0');
+            startTime = Date.now();
+          });
+        }
+      }
+
+      function showAlert() {
+        $('#alertBanner').fadeIn();
+        setTimeout(function () {
+          $('#alertBanner').fadeOut();
+        }, 3000);
+      }
+
+      function updateRuntime() {
+        if (startTime) {
+          const elapsed = Date.now() - startTime;
+          const hours = Math.floor(elapsed / 3600000);
+          const minutes = Math.floor((elapsed % 3600000) / 60000);
+          const seconds = Math.floor((elapsed % 60000) / 1000);
+
+          const timeStr =
+            String(hours).padStart(2, '0') +
+            ':' +
+            String(minutes).padStart(2, '0') +
+            ':' +
+            String(seconds).padStart(2, '0');
+
+          $('#runtime').text(timeStr);
+        }
+      }
+
+      // 定期獲取統計數據
+      setInterval(function () {
+        $.get('/api/stats', function (data) {
+          $('#totalFrames').text(data.total_frames.toLocaleString());
+        });
+      }, 5000);
+
+      // 頁面載入完成
+      $(document).ready(function () {
+        console.log('📱 監控介面已載入');
+      });
+    </script>
+  </body>
+</html>
