@@ -10,17 +10,28 @@ try:
     print("✅ PCA9685 初始化成功")
     
     # 設定舵機參數（MG996R 適用）
-    kit.servo[0].set_pulse_width_range(500, 2500)  # 調整脈衝寬度範圍
-    print("✅ 舵機參數已設定")
+    kit.servo[0].set_pulse_width_range(500, 2500)  # 通道0 - Pan
+    kit.servo[3].set_pulse_width_range(500, 2500)  # 通道3 - Tilt
+    print("✅ 舵機參數已設定（通道 0 和 3）")
     
     # 先測試一些固定角度
     print("\n🔄 執行自動測試...")
+    
+    # 測試通道 0 (Pan)
+    print("  測試通道 0 (Pan)...")
     test_angles = [90, 0, 180, 90]  # 中間→左→右→中間
     
     for angle in test_angles:
-        print(f"  → 設定角度: {angle}°")
+        print(f"    → Pan 角度: {angle}°")
         kit.servo[0].angle = angle
-        time.sleep(2)  # 給舵機足夠時間移動
+        time.sleep(2)
+    
+    # 測試通道 3 (Tilt)
+    print("  測試通道 3 (Tilt)...")
+    for angle in test_angles:
+        print(f"    → Tilt 角度: {angle}°")
+        kit.servo[3].angle = angle
+        time.sleep(2)
     
     print("✅ 自動測試完成")
     
