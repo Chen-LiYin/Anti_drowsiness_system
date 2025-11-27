@@ -37,19 +37,41 @@ try:
     
     # 手動控制
     print("\n🎯 手動控制模式")
-    print("輸入角度 (0-180)，或 'q' 結束：")
+    print("指令格式:")
+    print("  0 角度  - 控制通道 0 (Pan)")
+    print("  3 角度  - 控制通道 3 (Tilt)")
+    print("  both 角度 - 同時控制兩個舵機")
+    print("  q - 結束程式")
     
     while True:
         try:
-            a = input("角度: ").strip()
-            if a.lower() == 'q':
+            cmd = input("\n指令: ").strip().lower()
+            if cmd == 'q':
                 break
-            angle = int(a)
-            if 0 <= angle <= 180:
-                print(f"設定角度: {angle}°")
-                kit.servo[0].angle = angle
+            
+            parts = cmd.split()
+            if len(parts) == 2:
+                channel_cmd = parts[0]
+                angle = int(parts[1])
+                
+                if 0 <= angle <= 180:
+                    if channel_cmd == '0':
+                        print(f"設定通道 0 (Pan): {angle}°")
+                        kit.servo[0].angle = angle
+                    elif channel_cmd == '3':
+                        print(f"設定通道 3 (Tilt): {angle}°")
+                        kit.servo[3].angle = angle
+                    elif channel_cmd == 'both':
+                        print(f"設定兩個舵機: {angle}°")
+                        kit.servo[0].angle = angle
+                        kit.servo[3].angle = angle
+                    else:
+                        print("❌ 通道指令錯誤，使用 0、3 或 both")
+                else:
+                    print("❌ 角度必須在 0-180 之間")
             else:
-                print("❌ 角度必須在 0-180 之間")
+                print("❌ 格式錯誤，例如: '0 90' 或 '3 45'")
+                
         except ValueError:
             print("❌ 請輸入有效數字")
         except KeyboardInterrupt:
