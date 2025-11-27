@@ -30,6 +30,27 @@ class Config:
     WATER_PUMP_PIN = 23
     LED_PIN = 24
     
+    # ===== PCA9685 舵機控制配置 =====
+    SERVO_PAN_CHANNEL = 0    # Pan 舵機通道
+    SERVO_TILT_CHANNEL = 1   # Tilt 舵機通道
+    
+    # 舵機角度範圍
+    PAN_MIN = 0
+    PAN_MAX = 180
+    TILT_MIN = 45
+    TILT_MAX = 135
+    
+    # 舵機校正偏移
+    PAN_OFFSET = 0
+    TILT_OFFSET = 0
+    
+    # 舵機平滑移動參數
+    SERVO_SMOOTH_STEPS = 5
+    SERVO_SMOOTH_DELAY = 0.02
+    
+    # 人臉追蹤死區（像素）
+    TRACKING_DEAD_ZONE = 30
+    
     # ===== 數據儲存配置 =====
     DATA_DIR = 'data'
     LOG_DIR = os.path.join(DATA_DIR, 'logs')
