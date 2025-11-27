@@ -10,37 +10,34 @@ try:
     print("✅ PCA9685 初始化成功")
     
     # 設定舵機參數（MG996R 適用）
-    kit.servo[0].set_pulse_width_range(500, 2500)  # 通道0 - Pan
-    kit.servo[3].set_pulse_width_range(500, 2500)  # 通道3 - Tilt
-    print("✅ 舵機參數已設定（通道 0 和 3）")
+    kit.servo[0].set_pulse_width_range(500, 2500)  # 通道0
+    kit.servo[1].set_pulse_width_range(500, 2500)  # 通道1
+    kit.servo[2].set_pulse_width_range(500, 2500)  # 通道2
+    kit.servo[3].set_pulse_width_range(500, 2500)  # 通道3
+    print("✅ 舵機參數已設定（通道 0, 1, 2, 3）")
     
     # 先測試一些固定角度
     print("\n🔄 執行自動測試...")
-    
-    # 測試通道 0 (Pan)
-    print("  測試通道 0 (Pan)...")
     test_angles = [90, 0, 180, 90]  # 中間→左→右→中間
     
-    for angle in test_angles:
-        print(f"    → Pan 角度: {angle}°")
-        kit.servo[0].angle = angle
-        time.sleep(2)
-    
-    # 測試通道 3 (Tilt)
-    print("  測試通道 3 (Tilt)...")
-    for angle in test_angles:
-        print(f"    → Tilt 角度: {angle}°")
-        kit.servo[3].angle = angle
-        time.sleep(2)
+    # 測試所有通道
+    for channel in [0, 1, 2, 3]:
+        print(f"  測試通道 {channel}...")
+        for angle in test_angles:
+            print(f"    → 通道 {channel} 角度: {angle}°")
+            kit.servo[channel].angle = angle
+            time.sleep(1.5)  # 縮短等待時間
     
     print("✅ 自動測試完成")
     
     # 手動控制
     print("\n🎯 手動控制模式")
     print("指令格式:")
-    print("  0 角度  - 控制通道 0 (Pan)")
-    print("  3 角度  - 控制通道 3 (Tilt)")
-    print("  both 角度 - 同時控制兩個舵機")
+    print("  0 角度  - 控制通道 0")
+    print("  1 角度  - 控制通道 1") 
+    print("  2 角度  - 控制通道 2")
+    print("  3 角度  - 控制通道 3")
+    print("  all 角度 - 同時控制所有舵機")
     print("  q - 結束程式")
     
     while True:
@@ -55,22 +52,20 @@ try:
                 angle = int(parts[1])
                 
                 if 0 <= angle <= 180:
-                    if channel_cmd == '0':
-                        print(f"設定通道 0 (Pan): {angle}°")
-                        kit.servo[0].angle = angle
-                    elif channel_cmd == '3':
-                        print(f"設定通道 3 (Tilt): {angle}°")
-                        kit.servo[3].angle = angle
-                    elif channel_cmd == 'both':
-                        print(f"設定兩個舵機: {angle}°")
-                        kit.servo[0].angle = angle
-                        kit.servo[3].angle = angle
+                    if channel_cmd in ['0', '1', '2', '3']:
+                        channel = int(channel_cmd)
+                        print(f"設定通道 {channel}: {angle}°")
+                        kit.servo[channel].angle = angle
+                    elif channel_cmd == 'all':
+                        print(f"設定所有舵機: {angle}°")
+                        for ch in [0, 1, 2, 3]:
+                            kit.servo[ch].angle = angle
                     else:
-                        print("❌ 通道指令錯誤，使用 0、3 或 both")
+                        print("❌ 通道指令錯誤，使用 0、1、2、3 或 all")
                 else:
                     print("❌ 角度必須在 0-180 之間")
             else:
-                print("❌ 格式錯誤，例如: '0 90' 或 '3 45'")
+                print("❌ 格式錯誤，例如: '0 90' 或 '2 45' 或 'all 90'")
                 
         except ValueError:
             print("❌ 請輸入有效數字")
