@@ -14,14 +14,15 @@ try:
     kit.servo[1].set_pulse_width_range(500, 2500)  # 通道1
     kit.servo[2].set_pulse_width_range(500, 2500)  # 通道2
     kit.servo[3].set_pulse_width_range(500, 2500)  # 通道3
-    print("✅ 舵機參數已設定（通道 0, 1, 2, 3）")
+    kit.servo[4].set_pulse_width_range(500, 2500)  # 通道4
+    print("✅ 舵機參數已設定（通道 0, 1, 2, 3, 4）")
     
     # 先測試一些固定角度
     print("\n🔄 執行自動測試...")
     test_angles = [90, 0, 180, 90]  # 中間→左→右→中間
     
     # 測試所有通道
-    for channel in [0, 1, 2, 3]:
+    for channel in [0, 1, 2, 3, 4]:
         print(f"  測試通道 {channel}...")
         for angle in test_angles:
             print(f"    → 通道 {channel} 角度: {angle}°")
@@ -37,6 +38,7 @@ try:
     print("  1 角度  - 控制通道 1") 
     print("  2 角度  - 控制通道 2")
     print("  3 角度  - 控制通道 3")
+    print("  4 角度  - 控制通道 4")
     print("  all 角度 - 同時控制所有舵機")
     print("  q - 結束程式")
     
@@ -52,20 +54,20 @@ try:
                 angle = int(parts[1])
                 
                 if 0 <= angle <= 180:
-                    if channel_cmd in ['0', '1', '2', '3']:
+                    if channel_cmd in ['0', '1', '2', '3', '4']:
                         channel = int(channel_cmd)
                         print(f"設定通道 {channel}: {angle}°")
                         kit.servo[channel].angle = angle
                     elif channel_cmd == 'all':
                         print(f"設定所有舵機: {angle}°")
-                        for ch in [0, 1, 2, 3]:
+                        for ch in [0, 1, 2, 3, 4]:
                             kit.servo[ch].angle = angle
                     else:
-                        print("❌ 通道指令錯誤，使用 0、1、2、3 或 all")
+                        print("❌ 通道指令錯誤，使用 0、1、2、3、4 或 all")
                 else:
                     print("❌ 角度必須在 0-180 之間")
             else:
-                print("❌ 格式錯誤，例如: '0 90' 或 '2 45' 或 'all 90'")
+                print("❌ 格式錯誤，例如: '0 90' 或 '4 45' 或 'all 90'")
                 
         except ValueError:
             print("❌ 請輸入有效數字")
