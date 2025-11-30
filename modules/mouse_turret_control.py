@@ -31,12 +31,11 @@ class MouseTurretControl:
         self.screen_height = 600
         self.dead_zone = 20  # 死區，避免抖動
         
-        # Pan 控制 (360度舵機)
+        # Pan 控制 (360度舵機) - 使用相對角度系統
         self.pan_channel = 4
-        self.pan_position = 0  # 當前角度 (0-359)
-        self.pan_min_angle = 270  # 最左邊角度 (-90度，在360度系統中是270度)
-        self.pan_max_angle = 90   # 最右邊角度 (90度)
-        self.pan_center_angle = 0 # 中心角度
+        self.pan_relative_angle = 0    # 相對中心的角度 (-135 到 +135)
+        self.pan_max_range = 135       # 最大左右擺動角度
+        self.last_mouse_x = self.screen_width // 2  # 記錄上次滑鼠位置
         
         # Tilt 控制 (普通舵機)
         self.tilt_channel = 2
@@ -77,9 +76,10 @@ class MouseTurretControl:
         """重置到中心位置"""
         print("重置雲台位置...")
         
-        # Pan 歸零
-        self.pan_position = 0
+        # 停止 Pan 舵機並重置相對角度
         self.kit.continuous_servo[self.pan_channel].throttle = 0
+        self.pan_relative_angle = 0
+        self.last_mouse_x = self.screen_width // 2
         
         # Tilt 回中心
         self.current_tilt = self.tilt_center
@@ -91,32 +91,14 @@ class MouseTurretControl:
         time.sleep(1)
         print("雲台已重置")
     
-    def move_pan_to_angle(self, target_angle, speed=0.3):
-        """移動 Pan 到指定角度 (非阻塞版本)"""
-        target_angle = target_angle % 360
-        current_pos = self.pan_position
-        
-        # 計算最短路徑
-        diff = target_angle - current_pos
-        if diff > 180:
-            diff -= 360
-        elif diff < -180:
-            diff += 360
-        
-        if abs(diff) < 3:  # 增加容忍度，減少抖動
+    def move_pan_relative(self, direction, speed=0.2):
+        """相對移動 Pan 舵機"""
+        if direction == 0:
+            # 停止移動
             self.kit.continuous_servo[self.pan_channel].throttle = 0
-            self.pan_position = target_angle
-            return
-        
-        # 根據距離調整速度，距離越近速度越慢
-        adjusted_speed = max(0.1, min(speed, abs(diff) / 90.0 * speed))
-        
-        # 設定方向和速度
-        direction = 1 if diff > 0 else -1
-        self.kit.continuous_servo[self.pan_channel].throttle = direction * adjusted_speed
-        
-        # 更新預估位置 (簡化，不使用阻塞等待)
-        self.pan_position = target_angle
+        else:
+            # 設定移動方向和速度 (-1: 左, +1: 右)
+            self.kit.continuous_servo[self.pan_channel].throttle = direction * speed
     
     def update_tilt(self, mouse_y):
         """根據滑鼠 Y 座標更新 Tilt"""
@@ -133,33 +115,38 @@ class MouseTurretControl:
             self.kit.servo[self.tilt_channel].angle = target_tilt
     
     def update_pan(self, mouse_x):
-        """根據滑鼠 X 座標更新 Pan"""
-        # 映射滑鼠 X 座標到角度範圍 (左邊270度到右邊90度)
-        # 先映射到 -90 到 90 度的範圍
-        ratio = mouse_x / self.screen_width  # 0.0 到 1.0
-        angle_range = 180  # 總角度範圍 (-90 到 +90)
-        relative_angle = (ratio - 0.5) * angle_range  # -90 到 +90
+        """根據滑鼠 X 座標更新 Pan (相對控制)"""
+        center_x = self.screen_width // 2
+        mouse_offset = mouse_x - center_x
         
-        # 轉換到 0-360 度系統
-        if relative_angle < 0:
-            target_angle = 360 + relative_angle  # -90 變成 270度
+        # 計算目標相對角度 (-90 到 +90)
+        target_relative_angle = (mouse_offset / center_x) * self.pan_max_range
+        target_relative_angle = max(-self.pan_max_range, min(self.pan_max_range, target_relative_angle))
+        
+        # 計算需要移動的角度差
+        angle_diff = target_relative_angle - self.pan_relative_angle
+        
+        # 死區檢查
+        if abs(angle_diff) < 3:
+            self.move_pan_relative(0)  # 停止移動
+            return
+        
+        # 判斷移動方向
+        if angle_diff > 0:
+            # 需要向右移動
+            direction = 1
+            self.pan_relative_angle += 0.5  # 逐步更新位置
         else:
-            target_angle = relative_angle  # 0 到 90度保持不變
+            # 需要向左移動  
+            direction = -1
+            self.pan_relative_angle -= 0.5  # 逐步更新位置
         
-        # 限制在允許範圍內
-        if target_angle > 180 and target_angle < 270:
-            if abs(target_angle - 270) < abs(target_angle - 90):
-                target_angle = 270
-            else:
-                target_angle = 90
+        # 限制相對角度範圍
+        self.pan_relative_angle = max(-self.pan_max_range, min(self.pan_max_range, self.pan_relative_angle))
         
-        # 只有在角度變化足夠大時才移動
-        angle_diff = abs(target_angle - self.pan_position)
-        if angle_diff > 180:  # 處理跨越360度邊界的情況
-            angle_diff = 360 - angle_diff
-            
-        if angle_diff > 5:  # 增加最小移動閾值，減少抖動
-            self.move_pan_to_angle(target_angle, speed=0.2)
+        # 根據距離調整速度
+        speed = min(0.3, abs(angle_diff) / 30.0)
+        self.move_pan_relative(direction, speed)
     
     def fire_shot(self):
         """執行射擊動作"""
@@ -201,8 +188,8 @@ class MouseTurretControl:
         # 顯示狀態資訊
         font = pygame.font.Font(None, 36)
         
-        # Pan 位置
-        pan_text = font.render(f"Pan: {self.pan_position:.1f}°", True, (255, 255, 255))
+        # Pan 位置 (相對角度)
+        pan_text = font.render(f"Pan: {self.pan_relative_angle:.1f}°", True, (255, 255, 255))
         self.screen.blit(pan_text, (10, 10))
         
         # Tilt 位置
