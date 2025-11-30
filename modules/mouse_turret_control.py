@@ -47,11 +47,11 @@ class MouseTurretControl:
         
         # 射擊控制 (360度舵機) - 改為快速射擊
         self.fire_channel = 4  # 改為通道4 (360度舵機)
-        self.fire_speed = 1.0        # 射擊速度 (最快)
-        self.fire_duration = 0.2     # 射擊持續時間(秒) - 更快
-        self.fire_reset_duration = 0.3  # 復位時間
+        self.fire_speed = 0.8        # 射擊速度 (稍微降低)
+        self.fire_duration = 0.15    # 射擊持續時間(秒)
+        self.fire_reset_duration = 0.15  # 復位時間 (與射擊時間相同)
         self.last_fire_time = 0
-        self.fire_cooldown = 0.6     # 射擊冷卻時間(秒) - 更短
+        self.fire_cooldown = 0.6     # 射擊冷卻時間(秒)
         
         # 啟動時自動重置所有雲台位置
         print("正在重置雲台到初始位置...")
@@ -120,7 +120,7 @@ class MouseTurretControl:
     
     
     def fire_shot(self):
-        """執行射擊動作 (360度舵機快速射擊)"""
+        """執行射擊動作 (360度舵機精準復位)"""
         current_time = time.time()
         
         # 檢查冷卻時間
@@ -130,16 +130,12 @@ class MouseTurretControl:
         
         print("射擊！")
         
-        # 快速射擊動作：正轉 → 停止 → 反轉復位 → 停止
+        # 精準射擊動作：正轉 → 反轉復位 → 停止
         # 正轉射擊
         self.kit.continuous_servo[self.fire_channel].throttle = self.fire_speed
         time.sleep(self.fire_duration)
         
-        # 停止
-        self.kit.continuous_servo[self.fire_channel].throttle = 0
-        time.sleep(0.1)
-        
-        # 反轉復位
+        # 立即反轉復位 (相同速度和時間)
         self.kit.continuous_servo[self.fire_channel].throttle = -self.fire_speed
         time.sleep(self.fire_reset_duration)
         
