@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 滑鼠控制雲台射擊系統
-- 滑鼠水平移動: Pan (通道 0 - 360度舵機)
-- 滑鼠垂直移動: Tilt (通道 1 - 普通舵機)
-- 左鍵點擊: 射擊 (通道 2 - 普通舵機)
+- 滑鼠水平移動: Pan (通道 4 - 360度舵機)
+- 滑鼠垂直移動: Tilt (通道 2 - 普通舵機)
+- 左鍵點擊: 射擊 (通道 1 - 普通舵機)
 """
 
 import pygame
@@ -32,19 +32,19 @@ class MouseTurretControl:
         self.dead_zone = 20  # 死區，避免抖動
         
         # Pan 控制 (360度舵機)
-        self.pan_channel = 0
+        self.pan_channel = 4
         self.pan_position = 0  # 當前角度 (0-359)
         self.pan_sensitivity = 0.5  # 敏感度
         
         # Tilt 控制 (普通舵機)
-        self.tilt_channel = 1
+        self.tilt_channel = 2
         self.tilt_min = 30   # 最小角度
         self.tilt_max = 150  # 最大角度
         self.tilt_center = 90
         self.current_tilt = self.tilt_center
         
         # 射擊控制 (普通舵機)
-        self.fire_channel = 2
+        self.fire_channel = 1
         self.fire_ready_angle = 90   # 待機角度
         self.fire_shoot_angle = 45   # 射擊角度
         self.fire_duration = 0.5     # 射擊持續時間(秒)
