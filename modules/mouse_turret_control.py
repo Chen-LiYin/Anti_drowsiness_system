@@ -53,7 +53,8 @@ class MouseTurretControl:
         self.last_fire_time = 0
         self.fire_cooldown = 1.0     # 射擊冷卻時間(秒)
         
-        # 初始化位置
+        # 啟動時自動重置所有雲台位置
+        print("正在重置雲台到初始位置...")
         self.reset_position()
         
         print("滑鼠雲台控制系統已啟動")
@@ -102,7 +103,7 @@ class MouseTurretControl:
         elif diff < -180:
             diff += 360
         
-        if abs(diff) < 2:  # 已經很接近目標
+        if abs(diff) < 1:  # 提高精準度，更接近目標才停止
             self.kit.continuous_servo[channel].throttle = 0
             self.pan_current_position = target_angle
             return
@@ -111,8 +112,8 @@ class MouseTurretControl:
         direction = 1 if diff > 0 else -1
         self.kit.continuous_servo[channel].throttle = direction * speed
         
-        # 計算旋轉時間（粗略估計）
-        rotation_time = abs(diff) / 180.0 * 1.0  # 假設180度需要1秒
+        # 計算旋轉時間（更精準的估計）
+        rotation_time = abs(diff) / 180.0 * 0.8  # 假設180度需要0.8秒，稍微縮短時間提高精準度
         
         start_time = time.time()
         while time.time() - start_time < rotation_time:
@@ -156,8 +157,8 @@ class MouseTurretControl:
         if angle_diff > 180:  # 處理跨越360度邊界
             angle_diff = 360 - angle_diff
             
-        if angle_diff > 3:  # 最小移動閾值
-            self.move_360_to_angle(self.pan_channel, target_angle, speed=0.2)
+        if angle_diff > 2:  # 降低移動閾值，提高響應靈敏度
+            self.move_360_to_angle(self.pan_channel, target_angle, speed=0.25)
     
     def fire_shot(self):
         """執行射擊動作"""
