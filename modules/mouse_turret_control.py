@@ -47,9 +47,9 @@ class MouseTurretControl:
         
         # 射擊控制 (360度舵機) - 改為快速射擊
         self.fire_channel = 4  # 改為通道4 (360度舵機)
-        self.fire_speed = 0.8        # 射擊速度 (稍微降低)
-        self.fire_duration = 0.15    # 射擊持續時間(秒)
-        self.fire_reset_duration = 0.15  # 復位時間 (與射擊時間相同)
+        self.fire_speed = 0.7        # 射擊速度
+        self.fire_duration = 0.25    # 射擊持續時間(秒) - 增加到60度
+        self.fire_reset_duration = 0.27  # 復位時間 (稍微多一點補償慣性)
         self.last_fire_time = 0
         self.fire_cooldown = 0.6     # 射擊冷卻時間(秒)
         
