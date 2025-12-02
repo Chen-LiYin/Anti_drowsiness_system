@@ -106,11 +106,11 @@ class SeparatedDualSystem:
         
         # 射擊控制
         self.fire_channel = 4
-        self.fire_speed = 0.7
-        self.fire_duration = 0.35
-        self.fire_reset_duration = 0.358
+        self.fire_speed = 0.9          # 提升速度到90%
+        self.fire_duration = 0.27      # 縮短時間保持相同角度 (0.7×0.35 ≈ 0.9×0.27)
+        self.fire_reset_duration = 0.28  # 對應的復位時間
         self.last_fire_time = 0
-        self.fire_cooldown = 0.6
+        self.fire_cooldown = 0.5       # 稍微縮短冷卻時間
         
         self.reset_position()
     
@@ -216,15 +216,19 @@ class SeparatedDualSystem:
         while self.detection_window_running and self.running:
             ret, frame = self.cap.read()
             if not ret:
-                print("❌ 無法讀取攝像頭畫面")
+                print("無法讀取攝像頭畫面")
                 break
+            
+            # 更新共享數據（在處理前先保存原始影像）
+            with self.frame_lock:
+                self.current_frame = frame.copy()  # 保存純淨的原始影像給瞄準視窗
+                self.drowsiness_result = None  # 暫時清空結果
             
             # 瞌睡偵測處理
             processed_frame, result = self.drowsiness_detector.process_frame(frame)
             
-            # 更新共享數據
+            # 更新瞌睡偵測結果
             with self.frame_lock:
-                self.current_frame = frame.copy()  # 原始影像給瞄準視窗
                 self.drowsiness_result = result
             
             # 檢查是否需要發送瞌睡警報
@@ -257,42 +261,42 @@ class SeparatedDualSystem:
     
     def draw_pure_crosshair(self, mouse_pos):
         """繪製純淨的十字準星"""
+        # 繪製十字準心（參考原始邏輯）
         center_x, center_y = self.screen_width // 2, self.screen_height // 2
-        mouse_x, mouse_y = mouse_pos
         
-        # 準星顏色（根據射擊狀態）
+        # 根據射擊狀態決定準心顏色
         time_since_fire = time.time() - self.last_fire_time
         fire_ready = time_since_fire >= self.fire_cooldown
-        crosshair_color = (0, 255, 0) if fire_ready else (255, 100, 100)
+        crosshair_color = (255, 255, 255) if fire_ready else (255, 100, 100)
         
-        # 中心十字準星
+        # 繪製中心十字準心（比原版稍大）
         pygame.draw.line(self.screen, crosshair_color, 
-                        (center_x - 25, center_y), (center_x + 25, center_y), 2)
+                        (center_x - 20, center_y), (center_x + 20, center_y), 2)
         pygame.draw.line(self.screen, crosshair_color, 
-                        (center_x, center_y - 25), (center_x, center_y + 25), 2)
+                        (center_x, center_y - 20), (center_x, center_y + 20), 2)
         
-        # 中心點
-        pygame.draw.circle(self.screen, crosshair_color, (center_x, center_y), 2)
+        # 繪製死區（射擊精確度範圍）
+        dead_zone = 20
+        dead_zone_rect = pygame.Rect(center_x - dead_zone, center_y - dead_zone, 
+                                   dead_zone * 2, dead_zone * 2)
+        pygame.draw.rect(self.screen, (100, 100, 100), dead_zone_rect, 1)
         
-        # 滑鼠跟隨準星
-        pygame.draw.line(self.screen, (255, 255, 0), 
-                        (mouse_x - 10, mouse_y), (mouse_x + 10, mouse_y), 1)
-        pygame.draw.line(self.screen, (255, 255, 0), 
-                        (mouse_x, mouse_y - 10), (mouse_x, mouse_y + 10), 1)
-        pygame.draw.circle(self.screen, (255, 255, 0), mouse_pos, 15, 1)
+        # 繪製滑鼠位置（紅色圓點）
+        pygame.draw.circle(self.screen, (255, 0, 0), mouse_pos, 5)
         
-        # 射擊就緒指示
+        # 額外的準星指示圈（射擊狀態）
         if fire_ready:
-            pygame.draw.circle(self.screen, (0, 255, 0), (center_x, center_y), 40, 1)
+            # 就緒時顯示綠色圓圈
+            pygame.draw.circle(self.screen, (0, 255, 0), (center_x, center_y), 30, 1)
         else:
-            # 冷卻進度
+            # 冷卻時顯示進度圓弧
             progress = time_since_fire / self.fire_cooldown
             angle = int(360 * progress)
             if angle < 360:
                 points = []
                 for i in range(angle):
-                    x = center_x + 35 * np.cos(np.radians(i - 90))
-                    y = center_y + 35 * np.sin(np.radians(i - 90))
+                    x = center_x + 25 * np.cos(np.radians(i - 90))
+                    y = center_y + 25 * np.sin(np.radians(i - 90))
                     points.append((x, y))
                 if len(points) > 1:
                     pygame.draw.lines(self.screen, (255, 165, 0), False, points, 2)
