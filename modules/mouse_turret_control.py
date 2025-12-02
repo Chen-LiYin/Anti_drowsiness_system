@@ -40,8 +40,8 @@ class MouseTurretControl:
         
         # Tilt 控制 (普通舵機)
         self.tilt_channel = 2
-        self.tilt_min = 30   # 最小角度
-        self.tilt_max = 150  # 最大角度
+        self.tilt_min = 45   # 最小角度 (向上)
+        self.tilt_max = 135  # 最大角度 (向下45度)
         self.tilt_center = 90
         self.current_tilt = self.tilt_center
         
