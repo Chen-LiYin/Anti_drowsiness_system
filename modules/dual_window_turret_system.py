@@ -15,7 +15,6 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from modules.mouse_turret_control import MouseTurretControl
 from modules.drowsiness_detector import DrowsinessDetector
 from config import Config
 
@@ -187,99 +186,140 @@ class DualWindowTurretSystem:
         pygame_image = pygame.surfarray.make_surface(rgb_image)
         return pygame_image
     
-    def draw_ui_overlay(self, drowsiness_result):
-        """繪製 UI 疊加層"""
-        # 半透明疊加層
-        overlay = pygame.Surface((self.screen_width, self.screen_height))
-        overlay.set_alpha(100)
-        overlay.fill((0, 0, 0))
-        self.screen.blit(overlay, (0, 0))
+    def run_detection_window(self):
+        """運行瞌睡偵測視窗（OpenCV）"""
+        print("🔍 啟動瞌睡偵測視窗...")
+        
+        while self.detection_window_running and self.running:
+            # 讀取攝像頭畫面
+            ret, frame = self.cap.read()
+            if not ret:
+                print("❌ 無法讀取攝像頭畫面")
+                break
+            
+            # 瞌睡偵測處理
+            processed_frame, result = self.drowsiness_detector.process_frame(frame)
+            
+            # 更新共享數據
+            with self.frame_lock:
+                self.current_frame = frame.copy()  # 原始影像給 pygame 使用
+                self.drowsiness_result = result
+            
+            # 處理瞌睡警報
+            self.handle_drowsiness_alert(result)
+            
+            # 顯示偵測視窗
+            cv2.imshow('瞌睡偵測系統', processed_frame)
+            
+            # 按鍵處理
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q') or key == 27:  # ESC
+                self.running = False
+                break
+            elif key == ord('s'):
+                # 顯示統計
+                stats = self.drowsiness_detector.get_statistics()
+                print(f"\n📊 統計: 運行時間 {stats['runtime_str']}, 瞌睡事件 {stats['total_drowsy_events']} 次")
+            elif key == ord('r'):
+                # 重置統計
+                self.drowsiness_detector.reset_statistics()
+                print("✅ 瞌睡偵測統計已重置")
+        
+        # 關閉偵測視窗
+        cv2.destroyAllWindows()
+        print("🔍 瞌睡偵測視窗已關閉")
+    
+    def draw_targeting_ui(self, mouse_pos, drowsiness_result):
+        """繪製瞄準介面 UI"""
+        # 繪製十字準星
+        center_x, center_y = self.screen_width // 2, self.screen_height // 2
+        crosshair_color = (0, 255, 0) if drowsiness_result and drowsiness_result.get('state') == 'Alert' else (255, 0, 0)
+        
+        # 主準星線
+        pygame.draw.line(self.screen, crosshair_color, 
+                        (center_x - 30, center_y), (center_x + 30, center_y), 3)
+        pygame.draw.line(self.screen, crosshair_color, 
+                        (center_x, center_y - 30), (center_x, center_y + 30), 3)
+        
+        # 中心點
+        pygame.draw.circle(self.screen, crosshair_color, (center_x, center_y), 5, 2)
+        
+        # 射擊死區
+        dead_zone = 20
+        dead_zone_rect = pygame.Rect(center_x - dead_zone, center_y - dead_zone, 
+                                   dead_zone * 2, dead_zone * 2)
+        pygame.draw.rect(self.screen, (100, 100, 100), dead_zone_rect, 1)
+        
+        # 滑鼠位置指示
+        pygame.draw.circle(self.screen, (255, 255, 0), mouse_pos, 8, 2)
         
         # 字體
         font_large = pygame.font.Font(None, 48)
         font_medium = pygame.font.Font(None, 36)
         font_small = pygame.font.Font(None, 24)
         
-        # 狀態顯示
-        state = drowsiness_result.get('state', 'Unknown')
-        state_colors = {
-            'Alert': (0, 255, 0),
-            'Tired': (255, 255, 0),
-            'Yawning': (255, 165, 0),
-            'Drowsy': (255, 0, 0),
-            'No Face': (128, 128, 128)
-        }
-        color = state_colors.get(state, (255, 255, 255))
-        
-        # 主要狀態顯示
-        state_text = font_large.render(f"狀態: {state}", True, color)
-        self.screen.blit(state_text, (10, 10))
+        # 狀態顯示（左上）
+        if drowsiness_result:
+            state = drowsiness_result.get('state', 'Unknown')
+            state_colors = {
+                'Alert': (0, 255, 0),
+                'Tired': (255, 255, 0),
+                'Yawning': (255, 165, 0),
+                'Drowsy': (255, 0, 0),
+                'No Face': (128, 128, 128)
+            }
+            color = state_colors.get(state, (255, 255, 255))
+            state_text = font_medium.render(f"狀態: {state}", True, color)
+            self.screen.blit(state_text, (10, 10))
         
         # 模式顯示
-        mode_text = "自動模式" if self.auto_fire_enabled else "手動模式"
+        mode_text = "自動" if self.auto_fire_enabled else "手動"
         mode_color = (0, 255, 0) if self.auto_fire_enabled else (255, 255, 0)
         mode_surface = font_medium.render(f"模式: {mode_text}", True, mode_color)
-        self.screen.blit(mode_surface, (10, 70))
+        self.screen.blit(mode_surface, (10, 50))
         
-        # 雲台位置
+        # 雲台位置（左上）
         pan_rel = self.current_pan - 90
-        pan_text = font_medium.render(f"Pan: {pan_rel:.1f}°", True, (255, 255, 255))
-        self.screen.blit(pan_text, (10, 110))
+        pan_text = font_small.render(f"Pan: {pan_rel:+.0f}°", True, (255, 255, 255))
+        self.screen.blit(pan_text, (10, 90))
         
-        tilt_text = font_medium.render(f"Tilt: {self.current_tilt:.1f}°", True, (255, 255, 255))
-        self.screen.blit(tilt_text, (10, 150))
+        tilt_text = font_small.render(f"Tilt: {self.current_tilt:.0f}°", True, (255, 255, 255))
+        self.screen.blit(tilt_text, (10, 115))
         
-        # 射擊冷卻
+        # 射擊狀態（左上）
         time_since_fire = time.time() - self.last_fire_time
         fire_ready = time_since_fire >= self.fire_cooldown
         fire_color = (0, 255, 0) if fire_ready else (255, 100, 100)
-        fire_text = font_medium.render(
-            f"射擊: {'就緒' if fire_ready else f'冷卻 {self.fire_cooldown - time_since_fire:.1f}s'}", 
+        fire_text = font_small.render(
+            f"射擊: {'就緒' if fire_ready else f'{self.fire_cooldown - time_since_fire:.1f}s'}", 
             True, fire_color
         )
-        self.screen.blit(fire_text, (10, 190))
+        self.screen.blit(fire_text, (10, 140))
         
-        # 調試資訊
-        if self.show_debug_info and 'ear' in drowsiness_result:
-            debug_y = 250
-            ear_text = font_small.render(f"EAR: {drowsiness_result['ear']:.3f}", True, (255, 255, 255))
-            self.screen.blit(ear_text, (10, debug_y))
-            
-            mar_text = font_small.render(f"MAR: {drowsiness_result['mar']:.3f}", True, (255, 255, 255))
-            self.screen.blit(mar_text, (10, debug_y + 25))
-            
-            if drowsiness_result['eye_counter'] > 0:
-                eye_text = font_small.render(f"眼睛閉合: {drowsiness_result['eye_counter']} 幀", True, (255, 0, 0))
-                self.screen.blit(eye_text, (10, debug_y + 50))
-            
-            if drowsiness_result['yawn_counter'] > 0:
-                yawn_text = font_small.render(f"打哈欠: {drowsiness_result['yawn_counter']} 幀", True, (255, 165, 0))
-                self.screen.blit(yawn_text, (10, debug_y + 75))
+        # 瞄準資訊（中央上方）
+        range_text = font_small.render(f"範圍: Pan ±90°, Tilt 45-135°", True, (200, 200, 200))
+        text_rect = range_text.get_rect(center=(self.screen_width//2, 30))
+        self.screen.blit(range_text, text_rect)
         
-        # 瞌睡警報
-        if drowsiness_result.get('should_alert', False):
-            if int(time.time() * 3) % 2 == 0:  # 閃爍效果
-                alert_text = font_large.render("!!! 瞌睡警報 !!!", True, (255, 0, 0))
-                text_rect = alert_text.get_rect(center=(self.screen_width//2, 100))
+        # 警報顯示（中央）
+        if drowsiness_result and drowsiness_result.get('should_alert', False):
+            if int(time.time() * 4) % 2 == 0:  # 快速閃爍
+                alert_text = font_large.render("⚡ 瞌睡警報 ⚡", True, (255, 0, 0))
+                text_rect = alert_text.get_rect(center=(self.screen_width//2, 120))
                 self.screen.blit(alert_text, text_rect)
-                
-                # 紅色邊框
-                pygame.draw.rect(self.screen, (255, 0, 0), 
-                               (0, 0, self.screen_width, self.screen_height), 8)
         
         # 控制說明（右下角）
         instructions = [
-            "滑鼠移動: 手動控制",
-            "左鍵: 手動射擊",
-            "空白鍵: 切換模式",
-            "TAB: 顯示/隱藏資訊",
-            "R: 重置位置",
+            "滑鼠: 控制瞄準",
+            "左鍵: 射擊",
+            "空白: 模式",
+            "R: 重置",
             "ESC: 退出"
         ]
         
         for i, instruction in enumerate(instructions):
             text = font_small.render(instruction, True, (200, 200, 200))
-            self.screen.blit(text, (self.screen_width - 200, self.screen_height - 150 + i * 20))
+            self.screen.blit(text, (self.screen_width - 150, self.screen_height - 120 + i * 20))
     
     def handle_drowsiness_alert(self, drowsiness_result):
         """處理瞌睡警報"""
@@ -296,67 +336,76 @@ class DualWindowTurretSystem:
                 self.last_auto_fire_time = current_time
                 print("🚨 瞌睡偵測觸發自動射擊！")
     
+    def run_targeting_window(self):
+        """運行瞄準控制視窗（pygame）"""
+        print("🎯 啟動瞄準控制視窗...")
+        clock = pygame.time.Clock()
+        
+        while self.running:
+            # 處理事件
+            mouse_pos = pygame.mouse.get_pos()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                    elif event.key == pygame.K_SPACE:
+                        # 切換自動/手動模式
+                        self.auto_fire_enabled = not self.auto_fire_enabled
+                        mode = "自動" if self.auto_fire_enabled else "手動"
+                        print(f"🔄 切換為 {mode} 模式")
+                    elif event.key == pygame.K_r:
+                        # 重置雲台位置
+                        self.reset_position()
+                
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # 左鍵手動射擊
+                        self.fire_shot("手動")
+                
+                elif event.type == pygame.MOUSEMOTION:
+                    # 控制雲台
+                    self.update_pan(mouse_pos[0])
+                    self.update_tilt(mouse_pos[1])
+            
+            # 獲取共享數據
+            current_frame = None
+            drowsiness_result = None
+            with self.frame_lock:
+                if self.current_frame is not None:
+                    current_frame = self.current_frame.copy()
+                drowsiness_result = self.drowsiness_result
+            
+            # 繪製背景（攝像頭影像）
+            if current_frame is not None:
+                camera_surface = self.opencv_to_pygame(current_frame)
+                self.screen.blit(camera_surface, (0, 0))
+            else:
+                # 無攝像頭畫面時顯示黑色背景
+                self.screen.fill((0, 0, 0))
+            
+            # 繪製瞄準 UI
+            self.draw_targeting_ui(mouse_pos, drowsiness_result)
+            
+            # 更新顯示
+            pygame.display.flip()
+            clock.tick(30)
+        
+        print("🎯 瞄準控制視窗已關閉")
+    
     def run(self):
         """主要運行迴圈"""
-        clock = pygame.time.Clock()
-        running = True
+        print("\n🚀 啟動雙視窗系統...")
+        
+        # 啟動瞌睡偵測視窗線程
+        detection_thread = threading.Thread(target=self.run_detection_window, daemon=True)
+        detection_thread.start()
         
         try:
-            while running:
-                # 讀取攝像頭畫面
-                ret, frame = self.cap.read()
-                if not ret:
-                    print("❌ 無法讀取攝像頭畫面")
-                    break
-                
-                # 瞌睡偵測處理
-                processed_frame, drowsiness_result = self.drowsiness_detector.process_frame(frame)
-                
-                # 轉換為 pygame surface 並顯示為背景
-                self.camera_surface = self.opencv_to_pygame(processed_frame)
-                self.screen.blit(self.camera_surface, (0, 0))
-                
-                # 處理事件
-                mouse_pos = pygame.mouse.get_pos()
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
-                    
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            running = False
-                        elif event.key == pygame.K_SPACE:
-                            # 切換自動/手動模式
-                            self.auto_fire_enabled = not self.auto_fire_enabled
-                            mode = "自動" if self.auto_fire_enabled else "手動"
-                            print(f"🔄 切換為 {mode} 模式")
-                        elif event.key == pygame.K_TAB:
-                            # 切換調試資訊顯示
-                            self.show_debug_info = not self.show_debug_info
-                        elif event.key == pygame.K_r:
-                            # 重置雲台位置
-                            self.reset_position()
-                    
-                    elif event.type == pygame.MOUSEBUTTONDOWN:
-                        if event.button == 1:  # 左鍵手動射擊
-                            self.fire_shot("手動")
-                    
-                    elif event.type == pygame.MOUSEMOTION:
-                        # 手動控制雲台
-                        if not self.auto_fire_enabled:
-                            self.update_pan(mouse_pos[0])
-                            self.update_tilt(mouse_pos[1])
-                
-                # 處理瞌睡警報
-                self.handle_drowsiness_alert(drowsiness_result)
-                
-                # 繪製 UI 疊加層
-                self.draw_ui_overlay(drowsiness_result)
-                
-                # 更新顯示
-                pygame.display.flip()
-                clock.tick(30)
-                
+            # 運行瞄準控制視窗（主線程）
+            self.run_targeting_window()
+            
         except KeyboardInterrupt:
             print("\n⚠️ 使用者中斷")
         finally:
@@ -365,6 +414,10 @@ class DualWindowTurretSystem:
     def cleanup(self):
         """清理資源"""
         print("\n🔧 關閉系統...")
+        
+        # 停止所有線程
+        self.running = False
+        self.detection_window_running = False
         
         # 重置雲台
         try:
@@ -377,6 +430,9 @@ class DualWindowTurretSystem:
         # 關閉攝像頭
         if hasattr(self, 'cap') and self.cap.isOpened():
             self.cap.release()
+        
+        # 關閉 OpenCV 視窗
+        cv2.destroyAllWindows()
         
         # 關閉 pygame
         pygame.quit()
@@ -395,18 +451,20 @@ class DualWindowTurretSystem:
 def main():
     """主程式入口"""
     print("=" * 60)
-    print("🎯 整合式雲台瞌睡防範系統")
+    print("🎯 雙視窗整合式雲台瞌睡防範系統")
     print("=" * 60)
     print("功能特色:")
-    print("  ✓ 即時瞌睡偵測")
+    print("  ✓ 分離式雙視窗介面")
+    print("  ✓ 即時瞌睡偵測（OpenCV 視窗）")
+    print("  ✓ 專業瞄準控制（pygame 視窗）")
+    print("  ✓ 攝像頭影像背景")
     print("  ✓ 自動射擊警示")
     print("  ✓ 手動雲台控制")
-    print("  ✓ 攝像頭即時影像背景")
     print("=" * 60)
     print()
     
     try:
-        system = IntegratedTurretSystem()
+        system = DualWindowTurretSystem()
         system.run()
     except Exception as e:
         print(f"❌ 系統錯誤: {e}")
