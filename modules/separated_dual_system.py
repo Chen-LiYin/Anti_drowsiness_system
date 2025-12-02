@@ -28,8 +28,9 @@ class SeparatedDualSystem:
         
         # 配置參數
         self.config = Config()
-        self.screen_width = 800
-        self.screen_height = 600
+        # 使用攝像頭的實際解析度作為視窗大小
+        self.screen_width = self.config.CAMERA_WIDTH
+        self.screen_height = self.config.CAMERA_HEIGHT
         
         # 創建純淨瞄準視窗
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
@@ -107,8 +108,8 @@ class SeparatedDualSystem:
         # 射擊控制
         self.fire_channel = 4
         self.fire_speed = 0.9          # 提升速度到90%
-        self.fire_duration = 0.27      # 縮短時間保持相同角度 (0.7×0.35 ≈ 0.9×0.27)
-        self.fire_reset_duration = 0.28  # 對應的復位時間
+        self.fire_duration = 0.36      # 增加30度角度 (原90度+30度=120度)
+        self.fire_reset_duration = 0.37  # 對應的復位時間
         self.last_fire_time = 0
         self.fire_cooldown = 0.5       # 稍微縮短冷卻時間
         
