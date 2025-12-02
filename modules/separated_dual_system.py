@@ -28,9 +28,21 @@ class SeparatedDualSystem:
         
         # 配置參數
         self.config = Config()
-        # 使用攝像頭的實際解析度作為視窗大小
-        self.screen_width = self.config.CAMERA_WIDTH
-        self.screen_height = self.config.CAMERA_HEIGHT
+        
+        # 初始化攝像頭以獲取實際解析度
+        temp_cap = cv2.VideoCapture(self.config.CAMERA_INDEX)
+        temp_cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.CAMERA_WIDTH)
+        temp_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.CAMERA_HEIGHT)
+        
+        # 獲取實際的攝像頭解析度
+        actual_width = int(temp_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(temp_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        temp_cap.release()
+        
+        self.screen_width = actual_width
+        self.screen_height = actual_height
+        
+        print(f"攝像頭實際解析度: {actual_width}x{actual_height}")
         
         # 創建純淨瞄準視窗
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
@@ -195,15 +207,16 @@ class SeparatedDualSystem:
     
     def opencv_to_pygame(self, cv_image):
         """將 OpenCV 影像轉換為 pygame surface"""
+        # 直接轉換為RGB，保持原始比例
         rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-        rgb_image = np.rot90(rgb_image)
-        rgb_image = np.flipud(rgb_image)
         
+        # 確保影像大小與視窗匹配
         h, w = rgb_image.shape[:2]
         if w != self.screen_width or h != self.screen_height:
             rgb_image = cv2.resize(rgb_image, (self.screen_width, self.screen_height))
         
-        return pygame.surfarray.make_surface(rgb_image)
+        # 轉換為 pygame surface（轉置以正確顯示）
+        return pygame.surfarray.make_surface(rgb_image.swapaxes(0, 1))
     
     def run_detection_window(self):
         """運行瞌睡偵測視窗（OpenCV）"""
