@@ -68,8 +68,8 @@ class Config:
     
     # ===== 通知系統配置 =====
     # Telegram Bot 配置
-    TELEGRAM_BOT_TOKEN = ""  # 從 @BotFather 獲取
-    TELEGRAM_CHAT_ID = ""    # 目標用戶或群組ID
+    TELEGRAM_BOT_TOKEN = "8301429911:AAE6BITsORJ27yheiKl61RC00WO7wu9UJIM"  # 從 @BotFather 獲取
+    TELEGRAM_CHAT_ID = "8584895195"    # 目標用戶或群組ID
     TELEGRAM_ENABLED = False
     
     # ===== 網頁控制系統配置 =====
