@@ -186,7 +186,7 @@ class WebRemoteControl:
             leave_room('controllers')
         
         @self.socketio.on('control_start')
-        def handle_control_start(data):
+        def handle_control_start(data=None):
             """開始控制"""
             client_id = request.sid
             
