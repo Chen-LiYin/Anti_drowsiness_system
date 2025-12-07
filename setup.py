@@ -167,9 +167,9 @@ class SystemSetup:
             from config import Config
             config = Config()
             
-            if not config.TELEGRAM_BOT_TOKEN and not config.LINE_CHANNEL_ACCESS_TOKEN:
+            if not config.TELEGRAM_BOT_TOKEN :
                 self.print_warning("通知系統未配置")
-                self.print_warning("請在 config.py 中設置 Telegram 或 LINE API 配置")
+                self.print_warning("請在 config.py 中設置 Telegram 配置")
         except Exception as e:
             self.print_error(f"配置檢查錯誤: {e}")
             return False

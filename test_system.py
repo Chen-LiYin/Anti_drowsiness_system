@@ -216,7 +216,6 @@ class SystemTester:
             config = Config()
             
             telegram_configured = bool(config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID)
-            line_configured = bool(config.LINE_CHANNEL_ACCESS_TOKEN and config.LINE_USER_ID)
             
             if telegram_configured:
                 print("✅ Telegram 配置 - 已設置")
