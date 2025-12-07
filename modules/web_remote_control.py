@@ -481,7 +481,7 @@ class WebRemoteControl:
         print(f"   控制URL: http://{host}:{port}/remote_control?auth={self.config.CONTROL_PASSWORD}")
         print(f"   視訊URL: http://{host}:{port}/video_feed?auth={self.config.CONTROL_PASSWORD}")
         
-        self.socketio.run(self.app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+        self.socketio.run(self.app, host=host, port=port, debug=debug)
 
 
 def main():
