@@ -222,12 +222,7 @@ class SystemTester:
             else:
                 print("⚠️  Telegram 配置 - 未完整設置")
             
-            if line_configured:
-                print("✅ LINE 配置 - 已設置") 
-            else:
-                print("⚠️  LINE 配置 - 未完整設置")
-            
-            if telegram_configured or line_configured:
+            if telegram_configured :
                 self.test_results['notification_config'] = "已配置"
                 return True
             else:
