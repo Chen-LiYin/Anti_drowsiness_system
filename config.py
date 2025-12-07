@@ -66,6 +66,36 @@ class Config:
     SHOW_FPS = True
     SHOW_STATISTICS = True
     
+    # ===== 通知系統配置 =====
+    # Telegram Bot 配置
+    TELEGRAM_BOT_TOKEN = ""  # 從 @BotFather 獲取
+    TELEGRAM_CHAT_ID = ""    # 目標用戶或群組ID
+    TELEGRAM_ENABLED = False
+    
+    # ===== 網頁控制系統配置 =====
+    FLASK_HOST = "0.0.0.0"
+    FLASK_PORT = 5000
+    FLASK_DEBUG = True
+    
+    # 遠程控制功能
+    REMOTE_CONTROL_ENABLED = True
+    WEB_STREAM_ENABLED = True
+    CONTROL_PASSWORD = "drowsiness2024"  # 簡單的控制密碼
+    
+    # ===== 事件記錄配置 =====
+    EVENT_RECORDING_ENABLED = True
+    EVENT_LOG_PATH = os.path.join(DATA_DIR, 'events.json')
+    AUTO_SCREENSHOT_ON_EVENT = True
+    
+    # ===== 音效配置 =====
+    SOUND_EFFECTS_DIR = os.path.join('static', 'sounds')
+    DEFAULT_FIRE_SOUND = 'water_gun.mp3'
+    AVAILABLE_SOUNDS = [
+        'water_gun.mp3',
+        'laser_gun.mp3', 
+        'funny_sound.mp3'
+    ]
+    
     @staticmethod
     def init_directories():
         """初始化所有必要的目錄"""
@@ -74,11 +104,14 @@ class Config:
             Config.LOG_DIR,
             Config.RECORDING_DIR,
             Config.SCREENSHOT_DIR,
-            'static/sounds'
+            'static',
+            'static/sounds',
+            'static/css',
+            'static/js'
         ]
         for directory in dirs:
             os.makedirs(directory, exist_ok=True)
-        print("✅ 目錄初始化完成")
+        print("[完成] 目錄初始化完成")
 
 
 # 初始化目錄

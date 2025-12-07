@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遠程雲台控制 - 防瞌睡系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #16213e 0%, #0f3460 100%);
+            padding: 0.8rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            color: #00d4ff;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .connection-status {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .connected { background: #27ae60; }
+        .disconnected { background: #e74c3c; }
+        .control-active { background: #f39c12; }
+        
+        .video-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #video-stream {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 100;
+        }
+        
+        .controls-container {
+            height: 200px;
+            background: linear-gradient(90deg, #16213e 0%, #0f3460 100%);
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            border-top: 2px solid #00d4ff;
+        }
+        
+        .joystick-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .joystick {
+            width: 120px;
+            height: 120px;
+            border: 3px solid #00d4ff;
+            border-radius: 50%;
+            position: relative;
+            background: radial-gradient(circle, #16213e 0%, #0f3460 100%);
+            box-shadow: inset 0 0 20px rgba(0,212,255,0.3);
+            cursor: pointer;
+        }
+        
+        .joystick-knob {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 15px rgba(0,212,255,0.5);
+            transition: all 0.1s ease;
+        }
+        
+        .joystick-label {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        
+        .center-controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .fire-button {
+            width: 100px;
+            height: 100px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(231,76,60,0.4);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .fire-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(231,76,60,0.6);
+        }
+        
+        .fire-button:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        
+        .fire-button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .fire-cooldown {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 1rem;
+        }
+        
+        .settings-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        
+        .setting-label {
+            font-size: 0.8rem;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        
+        .setting-select {
+            padding: 0.5rem;
+            border: 2px solid #00d4ff;
+            border-radius: 5px;
+            background: #16213e;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        
+        .setting-select:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(0,212,255,0.5);
+        }
+        
+        .position-display {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #00d4ff;
+        }
+        
+        .emergency-controls {
+            position: fixed;
+            top: 70px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 200;
+        }
+        
+        .emergency-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e74c3c;
+            background: rgba(231,76,60,0.2);
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .emergency-btn:hover {
+            background: rgba(231,76,60,0.5);
+        }
+        
+        .control-request {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            border: none;
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,212,255,0.4);
+        }
+        
+        @media (max-width: 768px) {
+            .controls-container {
+                height: 180px;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 0.5rem;
+                padding: 0.5rem;
+            }
+            
+            .joystick {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .joystick-knob {
+                width: 25px;
+                height: 25px;
+            }
+            
+            .fire-button {
+                width: 70px;
+                height: 70px;
+                font-size: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.2rem;
+            }
+        }
+        
+        .notification {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            border: 2px solid;
+            padding: 1rem;
+            border-radius: 8px;
+            z-index: 500;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            max-width: 300px;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .notification.success { border-color: #27ae60; }
+        .notification.error { border-color: #e74c3c; }
+        .notification.warning { border-color: #f39c12; }
+        .notification.info { border-color: #00d4ff; }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- 標頭 -->
+        <div class="header">
+            <h1>🎯 遠程雲台控制</h1>
+            <div class="status-indicator">
+                <div class="connection-status disconnected" id="connection-status">連接中...</div>
+                <div class="position-display" id="position-display">Pan: -- | Tilt: --</div>
+            </div>
+        </div>
+        
+        <!-- 視訊串流 -->
+        <div class="video-container">
+            <img id="video-stream" src="/video_feed?auth={{ config.CONTROL_PASSWORD }}" alt="視訊串流">
+            <div class="video-overlay">
+                <div>🎥 即時串流</div>
+                <div id="stream-info">準備中...</div>
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="controls-container">
+            <!-- 左搖桿 (Pan 控制) -->
+            <div class="joystick-container">
+                <div class="joystick" id="pan-joystick">
+                    <div class="joystick-knob" id="pan-knob"></div>
+                </div>
+                <div class="joystick-label">水平控制 (Pan)</div>
+            </div>
+            
+            <!-- 中央控制 -->
+            <div class="center-controls">
+                <button class="fire-button" id="fire-button">
+                    🔫<br>射擊
+                    <div class="fire-cooldown" id="fire-cooldown" style="display: none;"></div>
+                </button>
+            </div>
+            
+            <!-- 右搖桿 (Tilt 控制) -->
+            <div class="joystick-container">
+                <div class="joystick" id="tilt-joystick">
+                    <div class="joystick-knob" id="tilt-knob"></div>
+                </div>
+                <div class="joystick-label">垂直控制 (Tilt)</div>
+            </div>
+        </div>
+        
+        <!-- 設定面板 -->
+        <div class="settings-container" style="position: fixed; bottom: 10px; right: 10px; background: rgba(22,33,62,0.9); padding: 1rem; border-radius: 8px;">
+            <div class="setting-group">
+                <label class="setting-label">射擊模式</label>
+                <select class="setting-select" id="fire-mode">
+                    <option value="single">單發</option>
+                    <option value="burst">連發</option>
+                    <option value="continuous">持續</option>
+                </select>
+            </div>
+            <div class="setting-group">
+                <label class="setting-label">音效</label>
+                <select class="setting-select" id="sound-effect">
+                    <option value="water_gun">水槍音效</option>
+                    <option value="laser_gun">雷射音效</option>
+                    <option value="funny_sound">搞笑音效</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- 緊急控制 -->
+        <div class="emergency-controls">
+            <button class="emergency-btn" id="stop-all">🛑 停止所有動作</button>
+            <button class="emergency-btn" id="center-turret">🎯 回中心位置</button>
+        </div>
+        
+        <!-- 控制權請求對話框 -->
+        <div class="control-request" id="control-request">
+            <h3>請求控制權限</h3>
+            <p>點擊下方按鈕獲取雲台控制權限</p>
+            <button class="control-btn" id="request-control">🎮 開始控制</button>
+            <button class="control-btn" id="cancel-control">❌ 取消</button>
+        </div>
+        
+        <!-- 通知區域 -->
+        <div class="notification" id="notification"></div>
+    </div>
+    
+    <script>
+        // SocketIO 連接
+        const socket = io();
+        
+        // 控制狀態
+        let controlActive = false;
+        let panAngle = 90;
+        let tiltAngle = 90;
+        let fireReady = true;
+        
+        // 搖桿控制類
+        class VirtualJoystick {
+            constructor(containerId, knobId, onMove) {
+                this.container = document.getElementById(containerId);
+                this.knob = document.getElementById(knobId);
+                this.onMove = onMove;
+                this.isDragging = false;
+                this.centerX = 60;  // 搖桿中心
+                this.centerY = 60;
+                this.maxRadius = 40;  // 最大移動半徑
+                
+                this.setupEvents();
+                this.reset();
+            }
+            
+            setupEvents() {
+                // 滑鼠事件
+                this.container.addEventListener('mousedown', (e) => this.startDrag(e));
+                document.addEventListener('mousemove', (e) => this.drag(e));
+                document.addEventListener('mouseup', () => this.stopDrag());
+                
+                // 觸控事件
+                this.container.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.startDrag(e.touches[0]);
+                });
+                document.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (this.isDragging) this.drag(e.touches[0]);
+                });
+                document.addEventListener('touchend', () => this.stopDrag());
+            }
+            
+            startDrag(event) {
+                this.isDragging = true;
+                this.container.style.cursor = 'grabbing';
+            }
+            
+            drag(event) {
+                if (!this.isDragging) return;
+                
+                const rect = this.container.getBoundingClientRect();
+                const x = event.clientX - rect.left - this.centerX;
+                const y = event.clientY - rect.top - this.centerY;
+                
+                const distance = Math.sqrt(x * x + y * y);
+                const angle = Math.atan2(y, x);
+                
+                // 限制在圓形範圍內
+                const radius = Math.min(distance, this.maxRadius);
+                const knobX = this.centerX + radius * Math.cos(angle);
+                const knobY = this.centerY + radius * Math.sin(angle);
+                
+                this.knob.style.left = knobX - 20 + 'px';
+                this.knob.style.top = knobY - 20 + 'px';
+                
+                // 計算數值 (-1 到 1)
+                const valueX = (radius * Math.cos(angle)) / this.maxRadius;
+                const valueY = (radius * Math.sin(angle)) / this.maxRadius;
+                
+                if (this.onMove) {
+                    this.onMove(valueX, valueY, radius / this.maxRadius);
+                }
+            }
+            
+            stopDrag() {
+                if (!this.isDragging) return;
+                
+                this.isDragging = false;
+                this.container.style.cursor = 'pointer';
+                this.reset();
+            }
+            
+            reset() {
+                this.knob.style.left = this.centerX - 20 + 'px';
+                this.knob.style.top = this.centerY - 20 + 'px';
+                
+                if (this.onMove) {
+                    this.onMove(0, 0, 0);
+                }
+            }
+        }
+        
+        // 初始化搖桿
+        const panJoystick = new VirtualJoystick('pan-joystick', 'pan-knob', (x, y, intensity) => {
+            if (!controlActive) return;
+            
+            // Pan 控制 (只使用 x 軸，範圍 0-180 度)
+            const panRange = {{ config.pan_max }} - {{ config.pan_min }};
+            panAngle = {{ config.pan_min }} + (x + 1) / 2 * panRange;
+            panAngle = Math.max({{ config.pan_min }}, Math.min({{ config.pan_max }}, panAngle));
+            
+            socket.emit('pan_control', { angle: panAngle });
+            updatePositionDisplay();
+        });
+        
+        const tiltJoystick = new VirtualJoystick('tilt-joystick', 'tilt-knob', (x, y, intensity) => {
+            if (!controlActive) return;
+            
+            // Tilt 控制 (使用 y 軸，範圍 45-135 度，y軸反向)
+            const tiltRange = {{ config.tilt_max }} - {{ config.tilt_min }};
+            tiltAngle = {{ config.tilt_min }} + (-y + 1) / 2 * tiltRange;
+            tiltAngle = Math.max({{ config.tilt_min }}, Math.min({{ config.tilt_max }}, tiltAngle));
+            
+            socket.emit('tilt_control', { angle: tiltAngle });
+            updatePositionDisplay();
+        });
+        
+        // SocketIO 事件處理
+        socket.on('connect', () => {
+            console.log('已連接到服務器');
+            updateConnectionStatus('connected', '已連接');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('與服務器斷開連接');
+            updateConnectionStatus('disconnected', '連接斷開');
+            controlActive = false;
+        });
+        
+        socket.on('control_granted', (data) => {
+            controlActive = true;
+            updateConnectionStatus('control-active', '控制中');
+            hideControlRequest();
+            showNotification('🎮 控制權限已獲得', 'success');
+        });
+        
+        socket.on('control_denied', (data) => {
+            showNotification('❌ ' + data.message, 'error');
+        });
+        
+        socket.on('position_update', (data) => {
+            panAngle = data.pan;
+            tiltAngle = data.tilt;
+            updatePositionDisplay();
+        });
+        
+        socket.on('fire_success', (data) => {
+            showNotification('🎯 射擊成功！', 'success');
+        });
+        
+        socket.on('fire_denied', (data) => {
+            showNotification('🚫 ' + data.message, 'warning');
+        });
+        
+        socket.on('fire_error', (data) => {
+            showNotification('❌ ' + data.message, 'error');
+        });
+        
+        socket.on('status_update', (data) => {
+            fireReady = data.fire_ready;
+            updateFireButton();
+        });
+        
+        // UI 更新函數
+        function updateConnectionStatus(status, text) {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.className = 'connection-status ' + status;
+            statusEl.textContent = text;
+        }
+        
+        function updatePositionDisplay() {
+            document.getElementById('position-display').textContent = 
+                `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
+        }
+        
+        function updateFireButton() {
+            const button = document.getElementById('fire-button');
+            const cooldown = document.getElementById('fire-cooldown');
+            
+            if (fireReady) {
+                button.disabled = false;
+                cooldown.style.display = 'none';
+            } else {
+                button.disabled = true;
+                cooldown.style.display = 'flex';
+            }
+        }
+        
+        function showControlRequest() {
+            document.getElementById('control-request').style.display = 'block';
+        }
+        
+        function hideControlRequest() {
+            document.getElementById('control-request').style.display = 'none';
+        }
+        
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            
+            // 顯示通知
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // 3秒後隱藏
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 按鈕事件
+        document.getElementById('request-control').addEventListener('click', () => {
+            socket.emit('control_start');
+        });
+        
+        document.getElementById('cancel-control').addEventListener('click', () => {
+            hideControlRequest();
+        });
+        
+        document.getElementById('fire-button').addEventListener('click', () => {
+            if (!controlActive || !fireReady) return;
+            
+            const mode = document.getElementById('fire-mode').value;
+            const sound = document.getElementById('sound-effect').value;
+            
+            socket.emit('fire_control', { mode, sound });
+        });
+        
+        document.getElementById('fire-mode').addEventListener('change', (e) => {
+            socket.emit('mode_change', { mode: e.target.value });
+        });
+        
+        document.getElementById('sound-effect').addEventListener('change', (e) => {
+            socket.emit('sound_change', { sound: e.target.value });
+        });
+        
+        document.getElementById('stop-all').addEventListener('click', () => {
+            if (controlActive) {
+                socket.emit('control_end');
+                controlActive = false;
+                updateConnectionStatus('connected', '已連接');
+                showNotification('🛑 已停止所有動作', 'info');
+            }
+        });
+        
+        document.getElementById('center-turret').addEventListener('click', () => {
+            if (controlActive) {
+                socket.emit('pan_control', { angle: 90 });
+                socket.emit('tilt_control', { angle: 90 });
+                showNotification('🎯 雲台已回中心', 'info');
+            }
+        });
+        
+        // 頁面載入完成後顯示控制權請求
+        window.addEventListener('load', () => {
+            setTimeout(showControlRequest, 1000);
+        });
+        
+        // 視訊串流錯誤處理
+        document.getElementById('video-stream').addEventListener('error', () => {
+            document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
+        });
+        
+        document.getElementById('video-stream').addEventListener('load', () => {
+            document.getElementById('stream-info').textContent = '即時串流中';
+        });
+    </script>
+</body>
+</html>

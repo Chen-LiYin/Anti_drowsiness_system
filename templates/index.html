@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>防瞌睡雲台系統</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Microsoft YaHei', Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+      }
+
+      .container {
+        text-align: center;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2rem;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        max-width: 600px;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+      }
+
+      .feature-list {
+        text-align: left;
+        margin: 2rem 0;
+        padding: 0 2rem;
+      }
+
+      .feature-list li {
+        margin: 0.8rem 0;
+        font-size: 1.1rem;
+        list-style: none;
+        position: relative;
+        padding-left: 1.5rem;
+      }
+
+      .feature-list li:before {
+        content: '🎯';
+        position: absolute;
+        left: 0;
+      }
+
+      .status-card {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 1rem 0;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .status-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin: 1rem 0;
+      }
+
+      .status-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+        border-radius: 8px;
+      }
+
+      .status-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        margin-bottom: 0.5rem;
+      }
+
+      .status-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+      }
+
+      .control-btn {
+        background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 25px;
+        cursor: pointer;
+        margin: 0.5rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .control-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+      }
+
+      .info-section {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .version-info {
+        margin-top: 1rem;
+        font-size: 0.8rem;
+        opacity: 0.6;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          margin: 1rem;
+          padding: 1.5rem;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        .status-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎯 防瞌睡雲台系統</h1>
+      <div class="subtitle">智能監控 • 即時警報 • 遠程控制</div>
+
+      <div class="status-card">
+        <h3>🚀 系統功能</h3>
+        <ul class="feature-list">
+          <li>即時瞌睡偵測與分析</li>
+          <li>自動通知系統 (Telegram/LINE)</li>
+          <li>遠程網頁控制介面</li>
+          <li>雲台精確控制與射擊</li>
+          <li>事件記錄與統計分析</li>
+        </ul>
+      </div>
+
+      <div class="status-card">
+        <h3>📊 即時狀態</h3>
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">系統狀態</div>
+            <div class="status-value" id="system-status">運行中</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">連接用戶</div>
+            <div class="status-value" id="connected-users">0</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">運行時間</div>
+            <div class="status-value" id="uptime">--:--:--</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">控制狀態</div>
+            <div class="status-value" id="control-status">待機中</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin: 2rem 0">
+        <a href="/remote_control?auth=drowsiness2024" class="control-btn">
+          🎮 進入遠程控制
+        </a>
+      </div>
+
+      <div class="info-section">
+        <p><strong>使用說明：</strong></p>
+        <p>1. 點擊「進入遠程控制」進入控制介面</p>
+        <p>2. 使用虛擬搖桿控制雲台方向</p>
+        <p>3. 選擇射擊模式和音效</p>
+        <p>4. 點擊射擊按鈕進行操作</p>
+
+        <div class="version-info">
+          <p>Anti-Drowsiness Turret System v1.0</p>
+          <p>Powered by Flask + SocketIO + OpenCV</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 定期更新狀態信息
+      function updateStatus() {
+        fetch('/api/status')
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById('connected-users').textContent =
+              data.connected_clients || 0;
+            document.getElementById('control-status').textContent =
+              data.control_active ? '控制中' : '待機中';
+
+            // 更新運行時間
+            if (data.uptime) {
+              const uptime = Math.floor(data.uptime);
+              const hours = Math.floor(uptime / 3600);
+              const minutes = Math.floor((uptime % 3600) / 60);
+              const seconds = uptime % 60;
+              document.getElementById('uptime').textContent = `${hours
+                .toString()
+                .padStart(2, '0')}:${minutes
+                .toString()
+                .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+          })
+          .catch((error) => {
+            console.error('狀態更新失敗:', error);
+            document.getElementById('system-status').textContent = '離線';
+          });
+      }
+
+      // 每5秒更新一次狀態
+      setInterval(updateStatus, 5000);
+
+      // 頁面載入時立即更新狀態
+      updateStatus();
+    </script>
+  </body>
+</html>
