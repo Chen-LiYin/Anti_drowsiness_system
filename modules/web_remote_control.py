@@ -93,13 +93,14 @@ class WebRemoteControl:
             if auth_token != self.config.CONTROL_PASSWORD:
                 return "❌ 無效的訪問權限", 403
             
-            return render_template('remote_control.html', 
+            return render_template('remote_control.html',
                                  config={
                                      'pan_min': self.pan_min,
                                      'pan_max': self.pan_max,
                                      'tilt_min': self.tilt_min,
                                      'tilt_max': self.tilt_max,
-                                     'sounds': self.config.AVAILABLE_SOUNDS
+                                     'sounds': self.config.AVAILABLE_SOUNDS,
+                                     'CONTROL_PASSWORD': self.config.CONTROL_PASSWORD
                                  })
         
         @self.app.route('/video_feed')
