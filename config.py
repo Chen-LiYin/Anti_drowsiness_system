@@ -35,8 +35,8 @@ class Config:
     SERVO_TILT_CHANNEL = 1   # Tilt 舵機通道
     
     # 舵機角度範圍
-    PAN_MIN = 0
-    PAN_MAX = 180
+    PAN_MIN = 45
+    PAN_MAX = 135
     TILT_MIN = 45
     TILT_MAX = 135
     
