@@ -556,7 +556,28 @@
           controlActive = true;
           updateConnectionStatus('control-active', '控制中');
           hideControlRequest();
-          showNotification('🎮 控制權限已獲得', 'success');
+
+          if (data.emergency) {
+              showNotification('🚨 緊急模式啟動 - 自動獲得控制權限！', 'warning');
+              // 顯示準星
+              document.getElementById('crosshair').style.display = 'block';
+          } else {
+              showNotification('🎮 控制權限已獲得', 'success');
+          }
+      });
+
+      socket.on('emergency_control_available', (data) => {
+          // 緊急控制模式通知
+          console.log('🚨 緊急模式:', data);
+          hideControlRequest();
+          showNotification('🚨 ' + data.message, 'error');
+
+          // 如果是自動授予，3秒後再次提醒
+          if (data.auto_grant) {
+              setTimeout(() => {
+                  showNotification('⚠️ 請立即使用控制權喚醒用戶！', 'warning');
+              }, 2000);
+          }
       });
 
       socket.on('control_denied', (data) => {

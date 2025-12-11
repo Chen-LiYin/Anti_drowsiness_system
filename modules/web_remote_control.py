@@ -486,6 +486,33 @@ class WebRemoteControl:
         self.event_recorder = event_recorder
         print("✅ 事件記錄器已設置")
 
+    def grant_emergency_control(self, reason="偵測到瞌睡"):
+        """緊急情況下自動授予遠端控制權限"""
+        print(f"\n🚨 緊急模式啟動: {reason}")
+
+        # 廣播緊急控制模式給所有連接的客戶端
+        self.socketio.emit('emergency_control_available', {
+            'reason': reason,
+            'message': f'緊急模式：{reason} - 控制權已自動開放',
+            'auto_grant': True
+        }, room='controllers')
+
+        # 如果有連接的客戶端，授予第一個客戶端控制權
+        if self.connected_clients and not self.control_active:
+            first_client = list(self.connected_clients)[0]
+            self.control_active = True
+            self.current_controller = first_client
+
+            self.socketio.emit('control_granted', {
+                'controller_id': first_client,
+                'emergency': True
+            }, room=first_client)
+
+            print(f"✅ 緊急控制權已授予客戶端: {first_client}")
+            return True
+
+        return False
+
     def revoke_remote_control(self, reason="用戶已甦醒"):
         """撤銷遠端控制權限"""
         if self.control_active and self.current_controller:

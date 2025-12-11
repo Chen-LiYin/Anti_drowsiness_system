@@ -359,6 +359,10 @@ class IntegratedAntiDrowsinessSystem:
                 if self.event_recorder:
                     self.event_recorder.record_drowsiness_start(drowsiness_result, current_frame)
 
+                # 自動授予遠端控制權限（緊急模式）
+                if self.web_control:
+                    self.web_control.grant_emergency_control(reason=f"偵測到瞌睡：{current_state}")
+
             # 發送通知（如果尚未發送）
             if not self.notification_sent and self.notification_system:
                 print("📲 嘗試發送 Telegram 通知...")
