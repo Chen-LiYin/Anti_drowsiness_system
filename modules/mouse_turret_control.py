@@ -34,8 +34,8 @@ class MouseTurretControl:
         # Pan 控制 (普通舵機 180度)
         self.pan_channel = 1  # 改為通道1 (普通舵機)
         self.pan_center = 90  # 中心位置
-        self.pan_min = 0      # 最左邊
-        self.pan_max = 180    # 最右邊
+        self.pan_min = 45      # 最左邊
+        self.pan_max = 135    # 最右邊
         self.current_pan = self.pan_center
         
         # Tilt 控制 (普通舵機)

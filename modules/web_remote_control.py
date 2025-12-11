@@ -52,7 +52,7 @@ class WebRemoteControl:
         # 雲台狀態
         self.current_pan = 90  # 中心位置
         self.current_tilt = 90
-        self.pan_min, self.pan_max = 0, 180
+        self.pan_min, self.pan_max = 45, 135
         self.tilt_min, self.tilt_max = 45, 135
         
         # 射擊狀態

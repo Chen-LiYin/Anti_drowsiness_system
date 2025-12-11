@@ -39,8 +39,8 @@ class TurretController:
             self.tilt_channel = getattr(config, 'SERVO_TILT_CHANNEL', 1)
             
             # 角度範圍
-            self.pan_min = getattr(config, 'PAN_MIN', 0)
-            self.pan_max = getattr(config, 'PAN_MAX', 180)
+            self.pan_min = getattr(config, 'PAN_MIN', 45)
+            self.pan_max = getattr(config, 'PAN_MAX', 135)
             self.tilt_min = getattr(config, 'TILT_MIN', 45)
             self.tilt_max = getattr(config, 'TILT_MAX', 135)
             

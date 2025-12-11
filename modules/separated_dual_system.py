@@ -106,8 +106,8 @@ class SeparatedDualSystem:
         # Pan 控制
         self.pan_channel = 1
         self.pan_center = 90
-        self.pan_min = 0
-        self.pan_max = 180
+        self.pan_min = 45
+        self.pan_max = 135
         self.current_pan = self.pan_center
         
         # Tilt 控制
