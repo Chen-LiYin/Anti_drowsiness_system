@@ -16,3 +16,4 @@ RPi.GPIO==0.7.1
 eventlet==0.33.1
 dnspython==2.1.0
 Werkzeug==2.0.3
+pyaudio==0.2.11

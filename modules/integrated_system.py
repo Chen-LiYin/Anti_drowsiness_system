@@ -371,16 +371,20 @@ class IntegratedAntiDrowsinessSystem:
         elif current_state == 'Alert' and self.drowsy_session_active:
             # 瞌睡狀態結束
             drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
-            print(f"\\n😊 用戶已甦醒！瞌睡持續時間: {drowsy_duration:.1f} 秒")
-            
+            print(f"\n😊 用戶已甦醒！瞌睡持續時間: {drowsy_duration:.1f} 秒")
+
+            # 撤銷遠端控制權限
+            if self.web_control:
+                self.web_control.revoke_remote_control(reason="用戶已甦醒")
+
             # 記錄瞌睡結束事件
             if self.event_recorder:
                 self.event_recorder.record_drowsiness_end(current_frame)
-            
+
             # 發送甦醒通知
             if self.notification_system:
                 self.notification_system.send_wake_up_notification()
-            
+
             # 重置瞌睡狀態
             self.drowsy_session_active = False
             self.drowsy_start_time = None
@@ -487,27 +491,30 @@ class IntegratedAntiDrowsinessSystem:
                     time.sleep(0.1)
                     continue
                 
+                # 保存純淨畫面（process_frame 會修改傳入的 frame）
+                clean_frame = frame.copy()
+
                 # 瞌睡偵測處理
                 if self.drowsiness_detector:
                     processed_frame, drowsiness_result = self.drowsiness_detector.process_frame(frame)
 
                     # 處理瞌睡偵測結果
                     if drowsiness_result:
-                        self.handle_drowsiness_detected(drowsiness_result, frame)
+                        self.handle_drowsiness_detected(drowsiness_result, clean_frame)
 
-                    # 保存瞌睡偵測畫面給本地顯示
+                    # 保存畫面給本地和遠端顯示
                     with self.frame_lock:
-                        self.current_frame = frame.copy()  # 純淨畫面（給遠端網頁）
-                        self.processed_frame = processed_frame.copy()  # 瞌睡偵測畫面（給本地顯示）
+                        self.current_frame = clean_frame  # 純淨畫面（給遠端網頁）
+                        self.processed_frame = processed_frame  # 瞌睡偵測畫面（給本地顯示）
                 else:
                     # 如果沒有瞌睡偵測，兩者都使用純淨畫面
                     with self.frame_lock:
-                        self.current_frame = frame.copy()
-                        self.processed_frame = frame.copy()
+                        self.current_frame = clean_frame
+                        self.processed_frame = clean_frame
 
                 # 更新網頁串流（使用純淨畫面）
                 if self.web_control:
-                    self.web_control.update_frame(frame)
+                    self.web_control.update_frame(clean_frame)
                 
             except Exception as e:
                 print(f"❌ 攝像頭處理錯誤: {e}")
@@ -519,10 +526,14 @@ class IntegratedAntiDrowsinessSystem:
         """運行網頁服務器線程"""
         if not self.web_control:
             return
-        
+
         print("🌐 啟動網頁服務器線程...")
-        
+
         try:
+            # 啟動音頻串流
+            if self.web_control.audio_enabled:
+                self.web_control.start_audio_stream()
+
             # 運行 Flask 應用（在子線程中）
             self.web_control.run(debug=False)
         except Exception as e:

@@ -17,6 +17,14 @@ import os
 import sys
 import numpy as np
 
+# 音頻串流
+try:
+    import pyaudio
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
+    print("⚠️ PyAudio 未安裝，音頻串流功能將不可用")
+
 # 添加父目錄到路徑
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from config import Config
@@ -69,13 +77,20 @@ class WebRemoteControl:
             'control_time': 0,
             'last_activity': None
         }
-        
+
+        # 音頻串流
+        self.audio_enabled = AUDIO_AVAILABLE
+        self.audio_stream = None
+        self.audio_thread = None
+        self.audio_running = False
+
         self.setup_routes()
         self.setup_socketio_events()
-        
+
         print("網頁遠程控制系統已初始化")
         print(f"  - Flask 主機: {self.config.FLASK_HOST}:{self.config.FLASK_PORT}")
         print(f"  - 控制密碼: {self.config.CONTROL_PASSWORD}")
+        print(f"  - 音頻串流: {'啟用' if self.audio_enabled else '停用'}")
     
     def setup_routes(self):
         """設置 Flask 路由"""
@@ -470,7 +485,121 @@ class WebRemoteControl:
         """設置事件記錄器"""
         self.event_recorder = event_recorder
         print("✅ 事件記錄器已設置")
-    
+
+    def revoke_remote_control(self, reason="用戶已甦醒"):
+        """撤銷遠端控制權限"""
+        if self.control_active and self.current_controller:
+            print(f"\n🔓 撤銷遠端控制權限: {reason}")
+
+            # 通知遠端控制者控制權已被撤銷
+            self.socketio.emit('control_revoked', {
+                'reason': reason,
+                'message': f'控制權已被撤銷：{reason}'
+            }, room='controllers')
+
+            # 釋放控制權
+            self.control_active = False
+            self.current_controller = None
+
+            print("✅ 遠端控制權限已撤銷")
+            return True
+        return False
+
+    def start_audio_stream(self):
+        """啟動音頻串流"""
+        if not self.audio_enabled:
+            print("⚠️ 音頻功能未啟用")
+            return False
+
+        if self.audio_running:
+            print("⚠️ 音頻串流已在運行")
+            return False
+
+        try:
+            self.audio_running = True
+            self.audio_thread = threading.Thread(target=self.stream_audio, daemon=True)
+            self.audio_thread.start()
+            print("🎤 音頻串流已啟動")
+            return True
+        except Exception as e:
+            print(f"❌ 音頻串流啟動失敗: {e}")
+            self.audio_running = False
+            return False
+
+    def stop_audio_stream(self):
+        """停止音頻串流"""
+        if not self.audio_running:
+            return
+
+        self.audio_running = False
+        if self.audio_thread:
+            self.audio_thread.join(timeout=2)
+
+        if self.audio_stream:
+            try:
+                self.audio_stream.stop_stream()
+                self.audio_stream.close()
+            except:
+                pass
+
+        print("🎤 音頻串流已停止")
+
+    def stream_audio(self):
+        """音頻串流線程"""
+        try:
+            # 音頻參數
+            CHUNK = 1024
+            FORMAT = pyaudio.paInt16
+            CHANNELS = 1
+            RATE = 16000
+
+            # 初始化 PyAudio
+            p = pyaudio.PyAudio()
+
+            # 開啟音頻串流
+            self.audio_stream = p.open(
+                format=FORMAT,
+                channels=CHANNELS,
+                rate=RATE,
+                input=True,
+                frames_per_buffer=CHUNK
+            )
+
+            print(f"🎤 麥克風已開啟 (採樣率: {RATE}Hz, 通道: {CHANNELS})")
+
+            while self.audio_running:
+                try:
+                    # 讀取音頻數據
+                    audio_data = self.audio_stream.read(CHUNK, exception_on_overflow=False)
+
+                    # 轉換為 base64 並通過 SocketIO 發送
+                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+
+                    self.socketio.emit('audio_stream', {
+                        'data': audio_base64,
+                        'rate': RATE,
+                        'channels': CHANNELS
+                    }, room='controllers')
+
+                except Exception as e:
+                    if self.audio_running:
+                        print(f"⚠️ 音頻讀取錯誤: {e}")
+                    break
+
+        except Exception as e:
+            print(f"❌ 音頻串流錯誤: {e}")
+        finally:
+            if self.audio_stream:
+                try:
+                    self.audio_stream.stop_stream()
+                    self.audio_stream.close()
+                except:
+                    pass
+            try:
+                p.terminate()
+            except:
+                pass
+
     def run(self, debug=None, host=None, port=None):
         """運行 Flask 應用"""
         host = host or self.config.FLASK_HOST
