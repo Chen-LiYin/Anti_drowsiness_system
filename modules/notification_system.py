@@ -66,8 +66,9 @@ class NotificationSystem:
     def generate_control_link(self):
         """生成遠程控制連結"""
         # 假設Flask應用運行在5000埠
-        base_url = f"http://{self.config.FLASK_HOST}:{self.config.FLASK_PORT}"
-        control_url = f"{base_url}/remote_control?auth={self.config.CONTROL_PASSWORD}"
+        base_url = f"http://{self.config.FLASK_HOST}:{self.config.FLASK_PORT}" #localhost
+        ngork_url = "https://pentapodic-gage-blier.ngrok-free.dev" #ngork tunnel URL
+        control_url = f"{ngork_url}/remote_control?auth={self.config.CONTROL_PASSWORD}"
         return control_url
     
     def format_drowsiness_message(self, drowsiness_result):
@@ -79,12 +80,11 @@ class NotificationSystem:
         eye_counter = drowsiness_result.get('eye_counter', 0)
         total_drowsy = drowsiness_result.get('total_drowsy', 0)
 
-        message = f"""[瞌睡警報] - 立即行動！
+        message = f"""[瞌睡警報] - 有人要睡著了！！
 
 時間: {timestamp}
 狀態: {state}
 持續時間: {duration:.1f} 秒
-EAR值: {ear_value:.3f}
 眼睛閉合幀數: {eye_counter}
 總瞌睡事件: {total_drowsy} 次
 

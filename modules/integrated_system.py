@@ -63,7 +63,8 @@ class IntegratedAntiDrowsinessSystem:
         self.remote_control_active = False
         
         # 共享數據
-        self.current_frame = None
+        self.current_frame = None  # 純淨畫面（供遠端網頁使用）
+        self.processed_frame = None  # 瞌睡偵測畫面（供本地顯示使用）
         self.frame_lock = threading.Lock()
         self.control_lock = threading.Lock()
         
@@ -445,15 +446,15 @@ class IntegratedAntiDrowsinessSystem:
                         self.update_pan(mouse_pos[0])
                         self.update_tilt(mouse_pos[1])
             
-            # 獲取攝像頭影像
-            current_frame = None
+            # 獲取瞌睡偵測畫面（本地顯示用）
+            display_frame = None
             with self.frame_lock:
-                if self.current_frame is not None:
-                    current_frame = self.current_frame.copy()
-            
+                if self.processed_frame is not None:
+                    display_frame = self.processed_frame.copy()
+
             # 繪製背景
-            if current_frame is not None:
-                camera_surface = self.opencv_to_pygame(current_frame)
+            if display_frame is not None:
+                camera_surface = self.opencv_to_pygame(display_frame)
                 self.screen.blit(camera_surface, (0, 0))
             else:
                 self.screen.fill((30, 30, 30))
@@ -479,19 +480,25 @@ class IntegratedAntiDrowsinessSystem:
                     time.sleep(0.1)
                     continue
                 
-                # 保存純淨影像給本地控制和網頁串流
-                with self.frame_lock:
-                    self.current_frame = frame.copy()
-                
                 # 瞌睡偵測處理
                 if self.drowsiness_detector:
                     processed_frame, drowsiness_result = self.drowsiness_detector.process_frame(frame)
-                    
+
                     # 處理瞌睡偵測結果
                     if drowsiness_result:
                         self.handle_drowsiness_detected(drowsiness_result, frame)
-                
-                # 更新網頁串流
+
+                    # 保存瞌睡偵測畫面給本地顯示
+                    with self.frame_lock:
+                        self.current_frame = frame.copy()  # 純淨畫面（給遠端網頁）
+                        self.processed_frame = processed_frame.copy()  # 瞌睡偵測畫面（給本地顯示）
+                else:
+                    # 如果沒有瞌睡偵測，兩者都使用純淨畫面
+                    with self.frame_lock:
+                        self.current_frame = frame.copy()
+                        self.processed_frame = frame.copy()
+
+                # 更新網頁串流（使用純淨畫面）
                 if self.web_control:
                     self.web_control.update_frame(frame)
                 

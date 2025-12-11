@@ -85,51 +85,64 @@
         }
         
         .controls-container {
-            height: 200px;
+            height: 150px;
             background: linear-gradient(90deg, #16213e 0%, #0f3460 100%);
-            display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            gap: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
             padding: 1rem;
             border-top: 2px solid #00d4ff;
         }
-        
-        .joystick-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .joystick {
-            width: 120px;
-            height: 120px;
-            border: 3px solid #00d4ff;
-            border-radius: 50%;
-            position: relative;
-            background: radial-gradient(circle, #16213e 0%, #0f3460 100%);
-            box-shadow: inset 0 0 20px rgba(0,212,255,0.3);
-            cursor: pointer;
-        }
-        
-        .joystick-knob {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-            border-radius: 50%;
+
+        .control-hint {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 4px 15px rgba(0,212,255,0.5);
-            transition: all 0.1s ease;
+            background: rgba(0,0,0,0.8);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            pointer-events: none;
+            z-index: 50;
+            border: 2px solid #00d4ff;
         }
-        
-        .joystick-label {
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
+
+        .control-hint h3 {
             color: #00d4ff;
-            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .crosshair {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+            z-index: 60;
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 212, 255, 0.8);
+        }
+
+        .crosshair::before {
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            transform: translateX(-50%);
+        }
+
+        .crosshair::after {
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            transform: translateY(-50%);
         }
         
         .center-controls {
@@ -281,30 +294,27 @@
         
         @media (max-width: 768px) {
             .controls-container {
-                height: 180px;
-                grid-template-columns: 1fr 1fr 1fr;
-                gap: 0.5rem;
+                height: 120px;
                 padding: 0.5rem;
             }
-            
-            .joystick {
-                width: 80px;
-                height: 80px;
-            }
-            
-            .joystick-knob {
-                width: 25px;
-                height: 25px;
-            }
-            
+
             .fire-button {
                 width: 70px;
                 height: 70px;
                 font-size: 1rem;
             }
-            
+
             .header h1 {
                 font-size: 1.2rem;
+            }
+
+            .control-hint {
+                padding: 1rem;
+                font-size: 0.9rem;
+            }
+
+            .control-hint h3 {
+                font-size: 1rem;
             }
         }
         
@@ -346,38 +356,32 @@
         </div>
         
         <!-- 視訊串流 -->
-        <div class="video-container">
+        <div class="video-container" id="video-container">
             <img id="video-stream" src="/video_feed?auth={{ config.CONTROL_PASSWORD }}" alt="視訊串流">
             <div class="video-overlay">
                 <div>🎥 即時串流</div>
                 <div id="stream-info">準備中...</div>
             </div>
+
+            <!-- 滑鼠準星 -->
+            <div class="crosshair" id="crosshair" style="display: none;"></div>
+
+            <!-- 控制提示 -->
+            <div class="control-hint" id="control-hint" style="display: none;">
+                <h3>🎮 滑鼠控制模式</h3>
+                <p>移動滑鼠控制雲台方向</p>
+                <p>點擊左鍵進行射擊</p>
+            </div>
         </div>
-        
+
         <!-- 控制面板 -->
         <div class="controls-container">
-            <!-- 左搖桿 (Pan 控制) -->
-            <div class="joystick-container">
-                <div class="joystick" id="pan-joystick">
-                    <div class="joystick-knob" id="pan-knob"></div>
-                </div>
-                <div class="joystick-label">水平控制 (Pan)</div>
-            </div>
-            
             <!-- 中央控制 -->
             <div class="center-controls">
                 <button class="fire-button" id="fire-button">
                     🔫<br>射擊
                     <div class="fire-cooldown" id="fire-cooldown" style="display: none;"></div>
                 </button>
-            </div>
-            
-            <!-- 右搖桿 (Tilt 控制) -->
-            <div class="joystick-container">
-                <div class="joystick" id="tilt-joystick">
-                    <div class="joystick-knob" id="tilt-knob"></div>
-                </div>
-                <div class="joystick-label">垂直控制 (Tilt)</div>
             </div>
         </div>
         
@@ -428,115 +432,71 @@
         let panAngle = 90;
         let tiltAngle = 90;
         let fireReady = true;
-        
-        // 搖桿控制類
-        class VirtualJoystick {
-            constructor(containerId, knobId, onMove) {
-                this.container = document.getElementById(containerId);
-                this.knob = document.getElementById(knobId);
-                this.onMove = onMove;
-                this.isDragging = false;
-                this.centerX = 60;  // 搖桿中心
-                this.centerY = 60;
-                this.maxRadius = 40;  // 最大移動半徑
-                
-                this.setupEvents();
-                this.reset();
-            }
-            
-            setupEvents() {
-                // 滑鼠事件
-                this.container.addEventListener('mousedown', (e) => this.startDrag(e));
-                document.addEventListener('mousemove', (e) => this.drag(e));
-                document.addEventListener('mouseup', () => this.stopDrag());
-                
-                // 觸控事件
-                this.container.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.startDrag(e.touches[0]);
-                });
-                document.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    if (this.isDragging) this.drag(e.touches[0]);
-                });
-                document.addEventListener('touchend', () => this.stopDrag());
-            }
-            
-            startDrag(event) {
-                this.isDragging = true;
-                this.container.style.cursor = 'grabbing';
-            }
-            
-            drag(event) {
-                if (!this.isDragging) return;
-                
-                const rect = this.container.getBoundingClientRect();
-                const x = event.clientX - rect.left - this.centerX;
-                const y = event.clientY - rect.top - this.centerY;
-                
-                const distance = Math.sqrt(x * x + y * y);
-                const angle = Math.atan2(y, x);
-                
-                // 限制在圓形範圍內
-                const radius = Math.min(distance, this.maxRadius);
-                const knobX = this.centerX + radius * Math.cos(angle);
-                const knobY = this.centerY + radius * Math.sin(angle);
-                
-                this.knob.style.left = knobX - 20 + 'px';
-                this.knob.style.top = knobY - 20 + 'px';
-                
-                // 計算數值 (-1 到 1)
-                const valueX = (radius * Math.cos(angle)) / this.maxRadius;
-                const valueY = (radius * Math.sin(angle)) / this.maxRadius;
-                
-                if (this.onMove) {
-                    this.onMove(valueX, valueY, radius / this.maxRadius);
+
+        // 滑鼠控制設定
+        const panMin = {{ config.pan_min }};
+        const panMax = {{ config.pan_max }};
+        const tiltMin = {{ config.tilt_min }};
+        const tiltMax = {{ config.tilt_max }};
+
+        // 滑鼠控制初始化
+        function initMouseControl() {
+            const videoContainer = document.getElementById('video-container');
+            const crosshair = document.getElementById('crosshair');
+            const controlHint = document.getElementById('control-hint');
+
+            // 滑鼠移動事件
+            videoContainer.addEventListener('mousemove', (e) => {
+                if (!controlActive) return;
+
+                const rect = videoContainer.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // 更新準星位置
+                crosshair.style.left = (mouseX - 15) + 'px';
+                crosshair.style.top = (mouseY - 15) + 'px';
+                crosshair.style.display = 'block';
+
+                // 計算 Pan 和 Tilt 角度（基於滑鼠位置）
+                const ratioX = mouseX / rect.width;
+                const ratioY = mouseY / rect.height;
+
+                panAngle = panMin + ratioX * (panMax - panMin);
+                tiltAngle = tiltMin + ratioY * (tiltMax - tiltMin);
+
+                panAngle = Math.max(panMin, Math.min(panMax, panAngle));
+                tiltAngle = Math.max(tiltMin, Math.min(tiltMax, tiltAngle));
+
+                // 發送控制指令
+                socket.emit('pan_control', { angle: panAngle });
+                socket.emit('tilt_control', { angle: tiltAngle });
+                updatePositionDisplay();
+            });
+
+            // 滑鼠進入視訊容器
+            videoContainer.addEventListener('mouseenter', () => {
+                if (controlActive) {
+                    crosshair.style.display = 'block';
                 }
-            }
-            
-            stopDrag() {
-                if (!this.isDragging) return;
-                
-                this.isDragging = false;
-                this.container.style.cursor = 'pointer';
-                this.reset();
-            }
-            
-            reset() {
-                this.knob.style.left = this.centerX - 20 + 'px';
-                this.knob.style.top = this.centerY - 20 + 'px';
-                
-                if (this.onMove) {
-                    this.onMove(0, 0, 0);
-                }
-            }
+            });
+
+            // 滑鼠離開視訊容器
+            videoContainer.addEventListener('mouseleave', () => {
+                crosshair.style.display = 'none';
+            });
+
+            // 點擊視訊容器進行射擊
+            videoContainer.addEventListener('click', (e) => {
+                if (!controlActive || !fireReady) return;
+
+                const mode = document.getElementById('fire-mode').value;
+                const sound = document.getElementById('sound-effect').value;
+
+                socket.emit('fire_control', { mode, sound });
+            });
         }
-        
-        // 初始化搖桿
-        const panJoystick = new VirtualJoystick('pan-joystick', 'pan-knob', (x, y, intensity) => {
-            if (!controlActive) return;
-            
-            // Pan 控制 (只使用 x 軸，範圍 0-180 度)
-            const panRange = {{ config.pan_max }} - {{ config.pan_min }};
-            panAngle = {{ config.pan_min }} + (x + 1) / 2 * panRange;
-            panAngle = Math.max({{ config.pan_min }}, Math.min({{ config.pan_max }}, panAngle));
-            
-            socket.emit('pan_control', { angle: panAngle });
-            updatePositionDisplay();
-        });
-        
-        const tiltJoystick = new VirtualJoystick('tilt-joystick', 'tilt-knob', (x, y, intensity) => {
-            if (!controlActive) return;
-            
-            // Tilt 控制 (使用 y 軸，範圍 45-135 度，y軸反向)
-            const tiltRange = {{ config.tilt_max }} - {{ config.tilt_min }};
-            tiltAngle = {{ config.tilt_min }} + (-y + 1) / 2 * tiltRange;
-            tiltAngle = Math.max({{ config.tilt_min }}, Math.min({{ config.tilt_max }}, tiltAngle));
-            
-            socket.emit('tilt_control', { angle: tiltAngle });
-            updatePositionDisplay();
-        });
-        
+
         // SocketIO 事件處理
         socket.on('connect', () => {
             console.log('已連接到服務器');
@@ -553,7 +513,14 @@
             controlActive = true;
             updateConnectionStatus('control-active', '控制中');
             hideControlRequest();
-            showNotification('🎮 控制權限已獲得', 'success');
+            showNotification('🎮 控制權限已獲得 - 移動滑鼠控制雲台', 'success');
+
+            // 顯示控制提示
+            const controlHint = document.getElementById('control-hint');
+            controlHint.style.display = 'block';
+            setTimeout(() => {
+                controlHint.style.display = 'none';
+            }, 3000);
         });
         
         socket.on('control_denied', (data) => {
@@ -667,14 +634,18 @@
         
         document.getElementById('center-turret').addEventListener('click', () => {
             if (controlActive) {
+                panAngle = 90;
+                tiltAngle = 90;
                 socket.emit('pan_control', { angle: 90 });
                 socket.emit('tilt_control', { angle: 90 });
+                updatePositionDisplay();
                 showNotification('🎯 雲台已回中心', 'info');
             }
         });
-        
-        // 頁面載入完成後顯示控制權請求
+
+        // 頁面載入完成後顯示控制權請求並初始化滑鼠控制
         window.addEventListener('load', () => {
+            initMouseControl();
             setTimeout(showControlRequest, 1000);
         });
         
