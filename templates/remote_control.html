@@ -437,7 +437,18 @@
 
         <div class="setting-group">
           <label class="setting-label">即時音頻</label>
-          <button class="toggle-btn" id="audio-toggle" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          <button
+            class="toggle-btn"
+            id="audio-toggle"
+            style="
+              background: #4caf50;
+              color: white;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
             🔊 啟用音頻
           </button>
         </div>
@@ -528,7 +539,7 @@
           videoContainer.addEventListener('click', (e) => {
               if (!controlActive || !fireReady) return;
 
-              const mode = document.getElementById('fire-mode').value;
+              const mode = 'single';  // 預設射擊模式
               const sound = document.getElementById('sound-effect').value;
 
               socket.emit('fire_control', { mode, sound });
@@ -558,7 +569,7 @@
           hideControlRequest();
 
           if (data.emergency) {
-              showNotification('🚨 緊急模式啟動 - 自動獲得控制權限！', 'warning');
+              showNotification('🚨 瞌睡下模式啟動 - 自動獲得控制權限！', 'warning');
               // 顯示準星
               document.getElementById('crosshair').style.display = 'block';
           } else {
@@ -568,7 +579,7 @@
 
       socket.on('emergency_control_available', (data) => {
           // 緊急控制模式通知
-          console.log('🚨 緊急模式:', data);
+          console.log('🚨 瞌睡下模式:', data);
           hideControlRequest();
           showNotification('🚨 ' + data.message, 'error');
 
@@ -686,14 +697,10 @@
       document.getElementById('fire-button').addEventListener('click', () => {
           if (!controlActive || !fireReady) return;
 
-          const mode = document.getElementById('fire-mode').value;
+          const mode = 'single';  // 預設射擊模式
           const sound = document.getElementById('sound-effect').value;
 
           socket.emit('fire_control', { mode, sound });
-      });
-
-      document.getElementById('fire-mode').addEventListener('change', (e) => {
-          socket.emit('mode_change', { mode: e.target.value });
       });
 
       document.getElementById('sound-effect').addEventListener('change', (e) => {

@@ -487,13 +487,13 @@ class WebRemoteControl:
         print("✅ 事件記錄器已設置")
 
     def grant_emergency_control(self, reason="偵測到瞌睡"):
-        """緊急情況下自動授予遠端控制權限"""
-        print(f"\n🚨 緊急模式啟動: {reason}")
+        """瞌睡下自動授予遠端控制權限"""
+        print(f"\n 瞌睡下模式啟動: {reason}")
 
-        # 廣播緊急控制模式給所有連接的客戶端
+        # 廣播瞌睡下控制模式給所有連接的客戶端
         self.socketio.emit('emergency_control_available', {
             'reason': reason,
-            'message': f'緊急模式：{reason} - 控制權已自動開放',
+            'message': f'瞌睡下模式：{reason} - 控制權已自動開放',
             'auto_grant': True
         }, room='controllers')
 
