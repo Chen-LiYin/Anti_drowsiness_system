@@ -342,26 +342,33 @@ class IntegratedAntiDrowsinessSystem:
         # 檢查是否進入瞌睡狀態
         should_alert = drowsiness_result.get('should_alert', False)
         current_state = drowsiness_result.get('state', 'normal')
-        
-        if should_alert and current_state in ['drowsy', 'severe_drowsy']:
+        alert_level = drowsiness_result.get('alert_level', 0)
+
+        print(f"[偵測] 狀態: {current_state}, 警報級別: {alert_level}, should_alert: {should_alert}")
+
+        # 修正：狀態名稱是 "Drowsy"（大寫），alert_level >= 3 代表瞌睡
+        if should_alert or current_state == 'Drowsy' or alert_level >= 3:
             if not self.drowsy_session_active:
                 # 開始新的瞌睡會話
-                print(f"\\n🚨 檢測到瞌睡狀態: {current_state}")
+                print(f"\n🚨 檢測到瞌睡狀態: {current_state}")
                 self.drowsy_session_active = True
                 self.drowsy_start_time = time.time()
                 self.notification_sent = False
-                
+
                 # 記錄瞌睡開始事件
                 if self.event_recorder:
                     self.event_recorder.record_drowsiness_start(drowsiness_result, current_frame)
-            
+
             # 發送通知（如果尚未發送）
             if not self.notification_sent and self.notification_system:
+                print("📲 嘗試發送 Telegram 通知...")
                 if self.notification_system.send_drowsiness_alert(drowsiness_result, current_frame):
                     self.notification_sent = True
-                    print("📲 瞌睡警報通知已發送")
-        
-        elif current_state == 'normal' and self.drowsy_session_active:
+                    print("✅ 瞌睡警報通知已發送")
+                else:
+                    print("❌ 瞌睡警報通知發送失敗")
+
+        elif current_state == 'Alert' and self.drowsy_session_active:
             # 瞌睡狀態結束
             drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
             print(f"\\n😊 用戶已甦醒！瞌睡持續時間: {drowsy_duration:.1f} 秒")
