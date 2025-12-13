@@ -283,9 +283,9 @@ class IntegratedAntiDrowsinessSystem:
             print(f"   控制: http://{self.config.FLASK_HOST}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}")
         
         print(f"\\n🎮 本地控制:")
-        print(f"   - 滑鼠移動: 控制雲台瞄準")
-        print(f"   - 左鍵點擊: 手動射擊")
-        print(f"   - TAB 鍵: 切換本地/遠程控制模式")
+        print(f"   - 拖動左下搖桿: 控制雲台瞄準")
+        print(f"   - 點擊右下按鈕: 手動射擊")
+        print(f"   - TAB 鍵: 切換本地控制開/關")
         print(f"   - R 鍵: 重置雲台位置")
         print(f"   - ESC 鍵: 退出系統")
         print("="*70)
@@ -353,12 +353,40 @@ class IntegratedAntiDrowsinessSystem:
         """遠程 Tilt 控制"""
         with self.control_lock:
             self.current_tilt = angle
-            
+
             if self.kit:
                 self.kit.servo[self.tilt_channel].angle = angle
-            
+
             print(f"🌐 遠程Tilt控制: {angle:.1f}°")
-    
+
+    def set_pan(self, angle):
+        """設置 Pan 角度（本地搖桿控制）"""
+        if not self.local_control_active:
+            return
+
+        with self.control_lock:
+            target_angle = max(self.pan_min, min(self.pan_max, angle))
+
+            if abs(target_angle - self.current_pan) > 1:
+                self.current_pan = target_angle
+
+                if self.kit:
+                    self.kit.servo[self.pan_channel].angle = target_angle
+
+    def set_tilt(self, angle):
+        """設置 Tilt 角度（本地搖桿控制）"""
+        if not self.local_control_active:
+            return
+
+        with self.control_lock:
+            target_angle = max(self.tilt_min, min(self.tilt_max, angle))
+
+            if abs(target_angle - self.current_tilt) > 1:
+                self.current_tilt = target_angle
+
+                if self.kit:
+                    self.kit.servo[self.tilt_channel].angle = target_angle
+
     def remote_fire_control(self, shot_data):
         """遠程射擊控制"""
         print(f"🌐 遠程射擊請求: {shot_data}")

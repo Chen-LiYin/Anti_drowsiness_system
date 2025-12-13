@@ -38,13 +38,13 @@ class EventRecorder:
         
         # 線程鎖
         self.lock = threading.Lock()
-        
-        # 載入歷史數據
-        self.load_events()
-        
+
+        # 不載入歷史數據，每次啟動都是全新開始
+        # self.load_events()  # 註解掉，讓數據每次重置
+
         print("事件記錄系統已初始化")
         print(f"  - 事件記錄文件: {self.event_log_path}")
-        print(f"  - 歷史事件數量: {len(self.events)}")
+        print(f"  - 本次會話從零開始（數據不累積）")
     
     def create_event(self, event_type, data=None):
         """創建新事件"""
