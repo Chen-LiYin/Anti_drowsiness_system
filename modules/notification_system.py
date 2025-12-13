@@ -68,7 +68,7 @@ class NotificationSystem:
         # 假設Flask應用運行在5000埠
         base_url = f"http://{self.config.FLASK_HOST}:{self.config.FLASK_PORT}" #localhost
         ngork_url = "https://pentapodic-gage-blier.ngrok-free.dev" #ngork tunnel URL
-        control_url = f"{ngork_url}/remote_control?auth={self.config.CONTROL_PASSWORD}"
+        control_url = f"{base_url}/remote_control?auth={self.config.CONTROL_PASSWORD}"
         return control_url
     
     def format_drowsiness_message(self, drowsiness_result):
