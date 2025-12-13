@@ -795,10 +795,17 @@
       // SocketIO 事件處理
       socket.on('connect', () => {
           updateConnectionStatus('control-active', '控制中');
+          // 自動請求控制權限
+          socket.emit('control_start');
       });
 
       socket.on('disconnect', () => {
           updateConnectionStatus('disconnected', '連接斷開');
+      });
+
+      socket.on('control_granted', (data) => {
+          // 控制權已授予（靜默處理，無需通知）
+          controlActive = true;
       });
 
       socket.on('emergency_control_available', (data) => {
