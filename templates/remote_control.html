@@ -808,6 +808,12 @@
           controlActive = true;
       });
 
+      socket.on('control_revoked', (data) => {
+          // 控制權被撤銷，自動重新請求
+          controlActive = false;
+          socket.emit('control_start');
+      });
+
       socket.on('emergency_control_available', (data) => {
           // 緊急控制模式通知
           showNotification('🚨 ' + data.message, 'error');
