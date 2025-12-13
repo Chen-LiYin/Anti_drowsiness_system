@@ -534,11 +534,8 @@ class IntegratedAntiDrowsinessSystem:
         print("🌐 啟動網頁服務器線程...")
 
         try:
-            # 啟動音頻串流
-            if self.web_control.audio_enabled:
-                self.web_control.start_audio_stream()
-
             # 運行 Flask 應用（在子線程中）
+            # 音頻串流將在用戶點擊啟用按鈕時才開始
             self.web_control.run(debug=False)
         except Exception as e:
             print(f"❌ 網頁服務器錯誤: {e}")

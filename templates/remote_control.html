@@ -430,8 +430,10 @@
           <label class="setting-label">音效</label>
           <select class="setting-select" id="sound-effect">
             <option value="water_gun">水槍音效</option>
-            <option value="laser_gun">雷射音效</option>
-            <option value="funny_sound">搞笑音效</option>
+            <option value="放屁">放屁音效</option>
+            <option value="鴨子聲">鴨子音效</option>
+            <option value="小黃鴨">小黃鴨音效</option>
+            <option value="巴掌聲">巴掌音效</option>
           </select>
         </div>
 
@@ -815,19 +817,34 @@
           }
       });
 
+      // 音頻狀態回應
+      socket.on('audio_status', (data) => {
+          console.log('音頻狀態更新:', data);
+          if (data.enabled) {
+              audioEnabled = true;
+              document.getElementById('audio-toggle').style.background = '#f44336';
+              document.getElementById('audio-toggle').textContent = '🔇 停用音頻';
+          } else {
+              audioEnabled = false;
+              document.getElementById('audio-toggle').style.background = '#4CAF50';
+              document.getElementById('audio-toggle').textContent = '🔊 啟用音頻';
+          }
+          showNotification(data.message, data.enabled ? 'success' : 'info');
+      });
+
       // 音頻切換按鈕
       document.getElementById('audio-toggle').addEventListener('click', function() {
-          audioEnabled = !audioEnabled;
+          const enable = !audioEnabled;
 
-          if (audioEnabled) {
+          if (enable) {
+              // 初始化 AudioContext（必須在用戶交互時初始化）
               initAudioContext();
-              this.style.background = '#f44336';
-              this.textContent = '🔇 停用音頻';
-              showNotification('🎤 即時音頻已啟用', 'success');
+              // 發送啟用請求到後端
+              socket.emit('audio_enable', { enable: true });
+              showNotification('🎤 正在啟動音頻串流...', 'info');
           } else {
-              this.style.background = '#4CAF50';
-              this.textContent = '🔊 啟用音頻';
-              showNotification('🔇 即時音頻已停用', 'info');
+              // 發送停用請求到後端
+              socket.emit('audio_enable', { enable: false });
           }
       });
     </script>

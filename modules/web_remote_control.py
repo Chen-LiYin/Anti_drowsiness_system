@@ -368,16 +368,32 @@ class WebRemoteControl:
             """音效變更"""
             if not self.is_authorized_controller(request.sid):
                 return
-            
+
             new_sound = data.get('sound', 'water_gun')
             if new_sound in self.config.AVAILABLE_SOUNDS:
                 self.current_sound = new_sound
-                
+
                 self.socketio.emit('sound_update', {
                     'sound': new_sound
                 }, room='controllers')
-                
+
                 print(f"🔊 音效變更: {new_sound}")
+
+        @self.socketio.on('audio_enable')
+        def handle_audio_enable(data):
+            """音頻啟用/停用"""
+            enable = data.get('enable', False)
+
+            if enable:
+                print(f"🎤 客戶端 {request.sid} 請求啟用音頻")
+                if self.start_audio_stream():
+                    emit('audio_status', {'enabled': True, 'message': '音頻串流已啟動'})
+                else:
+                    emit('audio_status', {'enabled': False, 'message': '音頻串流啟動失敗'})
+            else:
+                print(f"🔇 客戶端 {request.sid} 請求停用音頻")
+                self.stop_audio_stream()
+                emit('audio_status', {'enabled': False, 'message': '音頻串流已停止'})
     
     def is_authorized_controller(self, client_id):
         """檢查是否為授權控制者"""

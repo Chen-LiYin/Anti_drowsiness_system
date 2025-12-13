@@ -92,8 +92,10 @@ class Config:
     DEFAULT_FIRE_SOUND = 'water_gun.mp3'
     AVAILABLE_SOUNDS = [
         'water_gun.mp3',
-        'laser_gun.mp3', 
-        'funny_sound.mp3'
+        '小黃鴨.mp3', 
+        '巴掌聲.mp3',
+        '放屁.mp3',
+        '鴨子聲.mp3'
     ]
     
     @staticmethod
