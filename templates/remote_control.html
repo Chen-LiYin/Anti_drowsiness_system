@@ -399,16 +399,17 @@
       <!-- 虛擬搖桿和射擊按鈕 (移到外面，避免被其他元素遮擋) -->
       <canvas id="joystick-canvas" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none; background: rgba(0, 0, 0, 0.5); z-index: 1000; border-top: 2px solid rgba(0, 212, 255, 0.5);"></canvas>
 
-      <!-- 設定面板 -->
+      <!-- 設定面板（移到左上角）-->
       <div
         class="settings-container"
         style="
           position: fixed;
-          bottom: 10px;
-          right: 10px;
+          top: 70px;
+          left: 10px;
           background: rgba(22, 33, 62, 0.9);
           padding: 1rem;
           border-radius: 8px;
+          z-index: 500;
         "
       >
         <div class="setting-group">
@@ -445,6 +446,7 @@
       <div class="emergency-controls">
         <button class="emergency-btn" id="stop-all">🛑 停止所有動作</button>
         <button class="emergency-btn" id="center-turret">🎯 回中心位置</button>
+        <button class="emergency-btn" id="request-control-btn" style="background: rgba(0, 212, 255, 0.3); border-color: #00d4ff;">🎮 請求控制</button>
       </div>
 
       <!-- 控制權請求對話框 -->
@@ -672,7 +674,10 @@
           };
 
           canvas.addEventListener('mousedown', (e) => {
-              if (!controlActive) return;
+              if (!controlActive) {
+                  showNotification('⚠️ 請先獲取控制權限', 'warning');
+                  return;
+              }
               const pos = getTouchPos(e);
               joystick.handleTouchStart(pos.x, pos.y);
               if (fireButton.handleTouchStart(pos.x, pos.y)) {
@@ -692,7 +697,10 @@
           });
 
           canvas.addEventListener('touchstart', (e) => {
-              if (!controlActive) return;
+              if (!controlActive) {
+                  showNotification('⚠️ 請先獲取控制權限', 'warning');
+                  return;
+              }
               e.preventDefault();
               const pos = getTouchPos(e);
               joystick.handleTouchStart(pos.x, pos.y);
@@ -773,13 +781,8 @@
       window.addEventListener('load', () => {
           console.log('🚀 頁面載入完成，開始初始化虛擬控制器...');
           initVirtualControls();
-
-          // 測試模式：立即顯示 canvas（除錯用）
-          const canvas = document.getElementById('joystick-canvas');
-          canvas.style.display = 'block';
-          console.log('✅ Canvas 已設置為顯示狀態');
-          console.log('Canvas 元素:', canvas);
-          console.log('Canvas 樣式:', canvas.style.cssText);
+          console.log('✅ 虛擬控制器初始化完成');
+          console.log('💡 請點擊「開始控制」按鈕以獲取控制權');
       });
 
       // 窗口大小改變時重新調整 Canvas
@@ -824,17 +827,24 @@
           // 顯示搖桿畫布
           const canvas = document.getElementById('joystick-canvas');
           canvas.style.display = 'block';
-          document.getElementById('control-hint').style.display = 'block';
+
+          // 顯示控制提示（3秒後自動隱藏）
+          const hint = document.getElementById('control-hint');
+          hint.style.display = 'block';
+          setTimeout(() => {
+              hint.style.display = 'none';
+          }, 3000);
 
           console.log('🎮 控制權已授予');
           console.log('Canvas 尺寸:', canvas.width, 'x', canvas.height);
           console.log('搖桿狀態:', joystick ? '已初始化' : '未初始化');
           console.log('按鈕狀態:', fireButton ? '已初始化' : '未初始化');
+          console.log('controlActive:', controlActive);
 
           if (data.emergency) {
               showNotification('🚨 緊急模式啟動 - 自動獲得控制權限！', 'warning');
           } else {
-              showNotification('🎮 控制權限已獲得', 'success');
+              showNotification('🎮 控制權限已獲得 - 可以使用搖桿控制了！', 'success');
           }
       });
 
@@ -997,6 +1007,15 @@
           }
       });
 
+      // 右上角的請求控制按鈕
+      document.getElementById('request-control-btn').addEventListener('click', () => {
+          if (controlActive) {
+              showNotification('✅ 您已經有控制權了', 'info');
+          } else {
+              showControlRequest();
+          }
+      });
+
       // ESC 鍵停止所有動作
       document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && controlActive) {
@@ -1012,10 +1031,13 @@
           }
       });
 
-      // 頁面載入完成後顯示控制權請求
-      window.addEventListener('load', () => {
-          setTimeout(showControlRequest, 1000);
-      });
+      // 頁面載入完成後顯示控制權請求（延遲確保 DOM 完全載入）
+      setTimeout(() => {
+          if (!controlActive) {
+              showControlRequest();
+              console.log('📢 顯示控制權請求對話框');
+          }
+      }, 1500);
 
       // 視訊串流錯誤處理
       document.getElementById('video-stream').addEventListener('error', () => {
