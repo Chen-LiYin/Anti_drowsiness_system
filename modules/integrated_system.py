@@ -22,6 +22,7 @@ from modules.drowsiness_detector import DrowsinessDetector
 from modules.notification_system import NotificationSystem
 from modules.event_recorder import EventRecorder
 from modules.web_remote_control import WebRemoteControl
+from modules.joystick_ui import VirtualJoystick, FireButton
 from adafruit_servokit import ServoKit
 from config import Config
 
@@ -51,6 +52,7 @@ class IntegratedAntiDrowsinessSystem:
         self.init_camera()
         
         # 初始化各個子系統
+        self.init_sound_system()
         self.init_drowsiness_detector()
         self.init_turret_control()
         self.init_notification_system()
@@ -75,29 +77,89 @@ class IntegratedAntiDrowsinessSystem:
         
         # 線程控制
         self.threads = []
-        
+
+        # 初始化虛擬搖桿和按鈕（本地控制 UI）
+        self.init_local_ui()
+
         print("✅ 整合系統初始化完成")
         self.print_system_info()
     
     def init_camera(self):
         """初始化攝像頭"""
         print("📷 初始化攝像頭...")
-        
+
         self.cap = cv2.VideoCapture(self.config.CAMERA_INDEX)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.CAMERA_WIDTH)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.CAMERA_HEIGHT)
         self.cap.set(cv2.CAP_PROP_FPS, self.config.CAMERA_FPS)
-        
+
         if not self.cap.isOpened():
             raise Exception("❌ 無法開啟攝像頭")
-        
+
         # 測試讀取一幀
         ret, test_frame = self.cap.read()
         if not ret:
             raise Exception("❌ 無法讀取攝像頭畫面")
-        
+
         print(f"✅ 攝像頭初始化成功 ({test_frame.shape[1]}x{test_frame.shape[0]})")
-    
+
+    def init_sound_system(self):
+        """初始化音效系統"""
+        print("🔊 初始化音效系統...")
+
+        try:
+            # 初始化 pygame mixer
+            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+
+            # 載入音效檔案
+            self.sounds = {}
+            sound_dir = self.config.SOUND_EFFECTS_DIR
+
+            for sound_file in self.config.AVAILABLE_SOUNDS:
+                sound_name = sound_file.replace('.mp3', '').replace('.wav', '')
+                sound_path = os.path.join(sound_dir, sound_file)
+
+                if os.path.exists(sound_path):
+                    try:
+                        self.sounds[sound_name] = pygame.mixer.Sound(sound_path)
+                        print(f"  ✅ 載入音效: {sound_name}")
+                    except Exception as e:
+                        print(f"  ⚠️  無法載入 {sound_file}: {e}")
+                else:
+                    print(f"  ⚠️  找不到音效檔案: {sound_path}")
+
+            # 設定預設音效
+            self.current_sound = 'water_gun'
+
+            if self.sounds:
+                print(f"✅ 音效系統初始化成功（載入 {len(self.sounds)} 個音效）")
+            else:
+                print("⚠️  音效系統初始化完成，但未載入任何音效檔案")
+
+        except Exception as e:
+            print(f"❌ 音效系統初始化失敗: {e}")
+            self.sounds = {}
+
+    def init_local_ui(self):
+        """初始化本地控制 UI（搖桿和按鈕）"""
+        print("🎮 初始化本地控制 UI...")
+
+        # 搖桿位置（左下角）
+        joystick_x = 80
+        joystick_y = self.screen_height - 80
+
+        # 射擊按鈕位置（右下角）
+        fire_button_x = self.screen_width - 80
+        fire_button_y = self.screen_height - 80
+
+        # 創建虛擬搖桿
+        self.joystick = VirtualJoystick(joystick_x, joystick_y, outer_radius=60, inner_radius=25)
+
+        # 創建射擊按鈕
+        self.fire_button = FireButton(fire_button_x, fire_button_y, radius=40)
+
+        print("✅ 本地控制 UI 初始化完成")
+
     def init_drowsiness_detector(self):
         """初始化瞌睡偵測器"""
         print("😴 初始化瞌睡偵測器...")
@@ -305,36 +367,45 @@ class IntegratedAntiDrowsinessSystem:
     def fire_shot(self, shot_data=None):
         """執行射擊動作"""
         current_time = time.time()
-        
+
         if current_time - self.last_fire_time < self.fire_cooldown:
             print(f"🚫 射擊冷卻中... ({self.fire_cooldown - (current_time - self.last_fire_time):.1f}s)")
             return False
-        
+
         is_remote = shot_data and shot_data.get('remote', False)
         fire_mode = shot_data.get('mode', 'single') if shot_data else 'single'
-        
-        print(f"🔫 {'遠程' if is_remote else '本地'}射擊！模式: {fire_mode}")
-        
+        sound_effect = shot_data.get('sound', self.current_sound) if shot_data else self.current_sound
+
+        print(f"🔫 {'遠程' if is_remote else '本地'}射擊！模式: {fire_mode}, 音效: {sound_effect}")
+
+        # 播放音效
+        if self.sounds and sound_effect in self.sounds:
+            try:
+                self.sounds[sound_effect].play()
+                print(f"🔊 播放音效: {sound_effect}")
+            except Exception as e:
+                print(f"⚠️  音效播放失敗: {e}")
+
         if self.kit:
             # 執行射擊動作
             self.kit.continuous_servo[self.fire_channel].throttle = -self.fire_speed
             time.sleep(self.fire_duration)
-            
+
             self.kit.continuous_servo[self.fire_channel].throttle = self.fire_speed
             time.sleep(self.fire_reset_duration)
-            
+
             self.kit.continuous_servo[self.fire_channel].throttle = 0
         else:
             # 模擬射擊
             print("🔫 模擬射擊動作...")
             time.sleep(0.5)
-        
+
         self.last_fire_time = current_time
-        
+
         # 記錄射擊事件
         if self.event_recorder:
             self.event_recorder.record_shot_fired(shot_data)
-        
+
         return True
     
     def handle_drowsiness_detected(self, drowsiness_result, current_frame):
@@ -404,44 +475,62 @@ class IntegratedAntiDrowsinessSystem:
         
         return pygame.surfarray.make_surface(rgb_image.swapaxes(0, 1))
     
-    def draw_crosshair(self, mouse_pos):
-        """繪製準星"""
-        center_x, center_y = self.screen_width // 2, self.screen_height // 2
-        
-        # 根據射擊狀態決定準心顏色
+    def draw_status_info(self):
+        """繪製狀態信息"""
+        font = pygame.font.Font(None, 24)
+
+        # 繪製控制狀態
+        if self.local_control_active:
+            status_text = font.render("本地控制: 啟用", True, (0, 255, 0))
+        else:
+            status_text = font.render("本地控制: 停用", True, (255, 165, 0))
+        self.screen.blit(status_text, (10, 10))
+
+        # 繪製雲台角度
+        pan_text = font.render(f"Pan: {self.current_pan:.0f}°", True, (255, 255, 255))
+        self.screen.blit(pan_text, (10, 35))
+
+        tilt_text = font.render(f"Tilt: {self.current_tilt:.0f}°", True, (255, 255, 255))
+        self.screen.blit(tilt_text, (10, 60))
+
+        # 繪製射擊狀態
         time_since_fire = time.time() - self.last_fire_time
         fire_ready = time_since_fire >= self.fire_cooldown
-        crosshair_color = (255, 255, 255) if fire_ready else (255, 100, 100)
-        
-        # 繪製十字準心
-        pygame.draw.line(self.screen, crosshair_color, 
-                        (center_x - 20, center_y), (center_x + 20, center_y), 2)
-        pygame.draw.line(self.screen, crosshair_color, 
-                        (center_x, center_y - 20), (center_x, center_y + 20), 2)
-        
-        # 繪製滑鼠位置
-        pygame.draw.circle(self.screen, (255, 0, 0), mouse_pos, 5)
-        
-        # 控制狀態指示
-        if self.local_control_active:
-            pygame.draw.circle(self.screen, (0, 255, 0), (center_x, center_y), 30, 1)
+        if fire_ready:
+            fire_text = font.render("射擊: 就緒", True, (0, 255, 0))
         else:
-            pygame.draw.circle(self.screen, (255, 165, 0), (center_x, center_y), 30, 1)
+            cooldown_left = self.fire_cooldown - time_since_fire
+            fire_text = font.render(f"射擊: {cooldown_left:.1f}s", True, (255, 100, 100))
+        self.screen.blit(fire_text, (10, 85))
+
+        # 繪製操作說明
+        help_font = pygame.font.Font(None, 18)
+        help_texts = [
+            "TAB: 切換本地控制",
+            "R: 重置雲台位置",
+            "ESC: 退出系統"
+        ]
+        y_offset = self.screen_height - 60
+        for text in help_texts:
+            help_surface = help_font.render(text, True, (180, 180, 180))
+            self.screen.blit(help_surface, (10, y_offset))
+            y_offset += 20
     
     def run_main_loop(self):
         """主要控制迴圈（本地控制視窗）"""
         print("\\n🎮 啟動本地控制視窗...")
-        
+
         clock = pygame.time.Clock()
-        
+        pygame.mouse.set_visible(True)  # 顯示滑鼠游標
+
         while self.running:
             # 處理事件
             mouse_pos = pygame.mouse.get_pos()
-            
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                
+
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.running = False
@@ -450,17 +539,40 @@ class IntegratedAntiDrowsinessSystem:
                         print(f"🎮 本地控制: {'啟用' if self.local_control_active else '停用'}")
                     elif event.key == pygame.K_r:
                         self.reset_turret_position()
-                
+
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1 and self.local_control_active:  # 左鍵射擊
-                        self.fire_shot({'remote': False, 'mode': 'single'})
-                
+                    if event.button == 1:  # 左鍵
+                        # 檢查是否點擊搖桿
+                        if self.local_control_active:
+                            self.joystick.handle_mouse_down(mouse_pos[0], mouse_pos[1])
+
+                        # 檢查是否點擊射擊按鈕
+                        if self.local_control_active and self.fire_button.handle_mouse_down(mouse_pos[0], mouse_pos[1]):
+                            self.fire_shot({'remote': False, 'mode': 'single'})
+
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:  # 左鍵放開
+                        self.joystick.handle_mouse_up()
+                        self.fire_button.handle_mouse_up()
+
                 elif event.type == pygame.MOUSEMOTION:
-                    # 更新雲台位置
+                    # 更新搖桿位置
                     if self.local_control_active:
-                        self.update_pan(mouse_pos[0])
-                        self.update_tilt(mouse_pos[1])
-            
+                        self.joystick.handle_mouse_motion(mouse_pos[0], mouse_pos[1])
+
+            # 根據搖桿控制雲台
+            if self.local_control_active and self.joystick.is_dragging:
+                joy_x, joy_y = self.joystick.get_values()
+                # 將搖桿值 (-1到1) 映射到雲台角度
+                target_pan = self.pan_center + (joy_x * (self.pan_max - self.pan_min) / 2)
+                target_tilt = self.tilt_center + (joy_y * (self.tilt_max - self.tilt_min) / 2)
+                self.set_pan(target_pan)
+                self.set_tilt(target_tilt)
+
+            # 更新射擊按鈕冷卻狀態
+            time_since_fire = time.time() - self.last_fire_time
+            self.fire_button.set_cooldown(time_since_fire < self.fire_cooldown)
+
             # 獲取瞌睡偵測畫面（本地顯示用）
             display_frame = None
             with self.frame_lock:
@@ -473,14 +585,18 @@ class IntegratedAntiDrowsinessSystem:
                 self.screen.blit(camera_surface, (0, 0))
             else:
                 self.screen.fill((30, 30, 30))
-            
-            # 繪製準星
-            self.draw_crosshair(mouse_pos)
-            
+
+            # 繪製搖桿和射擊按鈕
+            self.joystick.draw(self.screen)
+            self.fire_button.draw(self.screen)
+
+            # 繪製狀態信息
+            self.draw_status_info()
+
             # 更新顯示
             pygame.display.flip()
             clock.tick(30)
-        
+
         print("🎮 本地控制視窗已關閉")
     
     def run_camera_processing(self):

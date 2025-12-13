@@ -388,30 +388,18 @@
           <div id="stream-info">準備中...</div>
         </div>
 
-        <!-- 滑鼠準星 -->
-        <div class="crosshair" id="crosshair" style="display: none"></div>
-
         <!-- 控制提示 -->
         <div class="control-hint" id="control-hint" style="display: none">
-          <h3>🎮 滑鼠控制模式</h3>
-          <p>移動滑鼠控制雲台方向</p>
-          <p>點擊左鍵進行射擊</p>
+          <h3>🎮 搖桿控制模式</h3>
+          <p>使用左側搖桿控制雲台方向</p>
+          <p>點擊右側按鈕進行射擊</p>
         </div>
       </div>
 
       <!-- 控制面板 -->
       <div class="controls-container">
-        <!-- 中央控制 -->
-        <div class="center-controls">
-          <button class="fire-button" id="fire-button">
-            🔫<br />射擊
-            <div
-              class="fire-cooldown"
-              id="fire-cooldown"
-              style="display: none"
-            ></div>
-          </button>
-        </div>
+        <!-- 虛擬搖桿和射擊按鈕 -->
+        <canvas id="joystick-canvas" width="800" height="200" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none;"></canvas>
       </div>
 
       <!-- 設定面板 -->
@@ -484,73 +472,282 @@
       let tiltAngle = 90;
       let fireReady = true;
 
-      // 滑鼠控制設定
+      // 雲台控制設定
       const panMin = {{ config.pan_min }};
       const panMax = {{ config.pan_max }};
       const tiltMin = {{ config.tilt_min }};
       const tiltMax = {{ config.tilt_max }};
 
-      // 滑鼠控制初始化
-      function initMouseControl() {
-          const videoContainer = document.getElementById('video-container');
-          const crosshair = document.getElementById('crosshair');
-          const controlHint = document.getElementById('control-hint');
+      // 虛擬搖桿類別
+      class VirtualJoystick {
+          constructor(canvas, x, y, outerRadius, innerRadius) {
+              this.canvas = canvas;
+              this.ctx = canvas.getContext('2d');
+              this.baseX = x;
+              this.baseY = y;
+              this.outerRadius = outerRadius;
+              this.innerRadius = innerRadius;
+              this.stickX = x;
+              this.stickY = y;
+              this.isDragging = false;
+              this.outputX = 0;
+              this.outputY = 0;
+          }
 
-          // 滑鼠移動事件
-          videoContainer.addEventListener('mousemove', (e) => {
+          handleTouchStart(touchX, touchY) {
+              const distance = Math.sqrt((touchX - this.baseX) ** 2 + (touchY - this.baseY) ** 2);
+              if (distance <= this.outerRadius) {
+                  this.isDragging = true;
+                  this.updateStickPosition(touchX, touchY);
+                  return true;
+              }
+              return false;
+          }
+
+          handleTouchEnd() {
+              if (this.isDragging) {
+                  this.isDragging = false;
+                  this.stickX = this.baseX;
+                  this.stickY = this.baseY;
+                  this.outputX = 0;
+                  this.outputY = 0;
+                  return true;
+              }
+              return false;
+          }
+
+          handleTouchMove(touchX, touchY) {
+              if (this.isDragging) {
+                  this.updateStickPosition(touchX, touchY);
+                  return true;
+              }
+              return false;
+          }
+
+          updateStickPosition(touchX, touchY) {
+              let dx = touchX - this.baseX;
+              let dy = touchY - this.baseY;
+              const distance = Math.sqrt(dx ** 2 + dy ** 2);
+              const maxDistance = this.outerRadius - this.innerRadius;
+
+              if (distance > maxDistance) {
+                  dx = (dx / distance) * maxDistance;
+                  dy = (dy / distance) * maxDistance;
+              }
+
+              this.stickX = this.baseX + dx;
+              this.stickY = this.baseY + dy;
+              this.outputX = maxDistance > 0 ? dx / maxDistance : 0;
+              this.outputY = maxDistance > 0 ? dy / maxDistance : 0;
+          }
+
+          draw() {
+              // 繪製外圈
+              this.ctx.beginPath();
+              this.ctx.arc(this.baseX, this.baseY, this.outerRadius, 0, Math.PI * 2);
+              this.ctx.fillStyle = 'rgba(50, 50, 50, 0.5)';
+              this.ctx.fill();
+              this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.8)';
+              this.ctx.lineWidth = 2;
+              this.ctx.stroke();
+
+              // 繪製十字線
+              this.ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
+              this.ctx.lineWidth = 1;
+              this.ctx.beginPath();
+              this.ctx.moveTo(this.baseX - this.outerRadius + 10, this.baseY);
+              this.ctx.lineTo(this.baseX + this.outerRadius - 10, this.baseY);
+              this.ctx.moveTo(this.baseX, this.baseY - this.outerRadius + 10);
+              this.ctx.lineTo(this.baseX, this.baseY + this.outerRadius - 10);
+              this.ctx.stroke();
+
+              // 繪製搖桿頭
+              const color = this.isDragging ? 'rgba(100, 200, 255, 0.8)' : 'rgba(150, 150, 150, 0.8)';
+              this.ctx.beginPath();
+              this.ctx.arc(this.stickX, this.stickY, this.innerRadius, 0, Math.PI * 2);
+              this.ctx.fillStyle = color;
+              this.ctx.fill();
+              this.ctx.strokeStyle = 'rgba(200, 200, 200, 0.9)';
+              this.ctx.lineWidth = 2;
+              this.ctx.stroke();
+          }
+
+          getValues() {
+              return { x: this.outputX, y: this.outputY };
+          }
+      }
+
+      // 虛擬射擊按鈕類別
+      class FireButton {
+          constructor(canvas, x, y, radius) {
+              this.canvas = canvas;
+              this.ctx = canvas.getContext('2d');
+              this.x = x;
+              this.y = y;
+              this.radius = radius;
+              this.isPressed = false;
+              this.cooldown = false;
+          }
+
+          handleTouchStart(touchX, touchY) {
+              const distance = Math.sqrt((touchX - this.x) ** 2 + (touchY - this.y) ** 2);
+              if (distance <= this.radius) {
+                  this.isPressed = true;
+                  return true;
+              }
+              return false;
+          }
+
+          handleTouchEnd() {
+              if (this.isPressed) {
+                  this.isPressed = false;
+                  return true;
+              }
+              return false;
+          }
+
+          setCooldown(cooldown) {
+              this.cooldown = cooldown;
+          }
+
+          draw() {
+              let color = this.cooldown ? 'rgba(100, 100, 100, 0.5)' :
+                          this.isPressed ? 'rgba(255, 100, 100, 0.8)' : 'rgba(200, 50, 50, 0.8)';
+
+              this.ctx.beginPath();
+              this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+              this.ctx.fillStyle = color;
+              this.ctx.fill();
+              this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+              this.ctx.lineWidth = 3;
+              this.ctx.stroke();
+
+              // 繪製文字
+              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              this.ctx.font = 'bold 20px Arial';
+              this.ctx.textAlign = 'center';
+              this.ctx.textBaseline = 'middle';
+              this.ctx.fillText('FIRE', this.x, this.y);
+          }
+      }
+
+      // 初始化虛擬控制器
+      let joystick = null;
+      let fireButton = null;
+      let animationId = null;
+
+      function initVirtualControls() {
+          const canvas = document.getElementById('joystick-canvas');
+          const rect = canvas.getBoundingClientRect();
+
+          // 搖桿位置（左側）
+          const joystickX = 80;
+          const joystickY = 100;
+
+          // 射擊按鈕位置（右側）
+          const fireButtonX = rect.width - 80;
+          const fireButtonY = 100;
+
+          joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
+          fireButton = new FireButton(canvas, fireButtonX, fireButtonY, 40);
+
+          // 觸控/滑鼠事件處理
+          const getTouchPos = (e) => {
+              const rect = canvas.getBoundingClientRect();
+              const touch = e.touches ? e.touches[0] : e;
+              return {
+                  x: touch.clientX - rect.left,
+                  y: touch.clientY - rect.top
+              };
+          };
+
+          canvas.addEventListener('mousedown', (e) => {
               if (!controlActive) return;
-
-              const rect = videoContainer.getBoundingClientRect();
-              const mouseX = e.clientX - rect.left;
-              const mouseY = e.clientY - rect.top;
-
-              // 更新準星位置
-              crosshair.style.left = (mouseX - 15) + 'px';
-              crosshair.style.top = (mouseY - 15) + 'px';
-              crosshair.style.display = 'block';
-
-              // 計算 Pan 和 Tilt 角度（基於滑鼠位置）
-              const ratioX = mouseX / rect.width;
-              const ratioY = mouseY / rect.height;
-
-              panAngle = panMin + ratioX * (panMax - panMin);
-              tiltAngle = tiltMin + ratioY * (tiltMax - tiltMin);
-
-              panAngle = Math.max(panMin, Math.min(panMax, panAngle));
-              tiltAngle = Math.max(tiltMin, Math.min(tiltMax, tiltAngle));
-
-              // 發送控制指令
-              socket.emit('pan_control', { angle: panAngle });
-              socket.emit('tilt_control', { angle: tiltAngle });
-              updatePositionDisplay();
-          });
-
-          // 滑鼠進入視訊容器
-          videoContainer.addEventListener('mouseenter', () => {
-              if (controlActive) {
-                  crosshair.style.display = 'block';
+              const pos = getTouchPos(e);
+              joystick.handleTouchStart(pos.x, pos.y);
+              if (fireButton.handleTouchStart(pos.x, pos.y)) {
+                  handleFire();
               }
           });
 
-          // 滑鼠離開視訊容器
-          videoContainer.addEventListener('mouseleave', () => {
-              crosshair.style.display = 'none';
+          canvas.addEventListener('mousemove', (e) => {
+              if (!controlActive) return;
+              const pos = getTouchPos(e);
+              joystick.handleTouchMove(pos.x, pos.y);
           });
 
-          // 點擊視訊容器進行射擊
-          videoContainer.addEventListener('click', (e) => {
-              if (!controlActive || !fireReady) return;
-
-              const mode = 'single';  // 預設射擊模式
-              const sound = document.getElementById('sound-effect').value;
-
-              socket.emit('fire_control', { mode, sound });
+          canvas.addEventListener('mouseup', () => {
+              joystick.handleTouchEnd();
+              fireButton.handleTouchEnd();
           });
+
+          canvas.addEventListener('touchstart', (e) => {
+              if (!controlActive) return;
+              e.preventDefault();
+              const pos = getTouchPos(e);
+              joystick.handleTouchStart(pos.x, pos.y);
+              if (fireButton.handleTouchStart(pos.x, pos.y)) {
+                  handleFire();
+              }
+          });
+
+          canvas.addEventListener('touchmove', (e) => {
+              if (!controlActive) return;
+              e.preventDefault();
+              const pos = getTouchPos(e);
+              joystick.handleTouchMove(pos.x, pos.y);
+          });
+
+          canvas.addEventListener('touchend', () => {
+              joystick.handleTouchEnd();
+              fireButton.handleTouchEnd();
+          });
+
+          // 開始繪製循環
+          drawControls();
       }
 
-      // 頁面載入後初始化滑鼠控制
+      function drawControls() {
+          const canvas = document.getElementById('joystick-canvas');
+          const ctx = canvas.getContext('2d');
+
+          // 清空畫布
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (controlActive) {
+              // 繪製搖桿和按鈕
+              joystick.draw();
+              fireButton.draw();
+
+              // 根據搖桿控制雲台
+              if (joystick.isDragging) {
+                  const values = joystick.getValues();
+                  panAngle = (panMin + panMax) / 2 + values.x * (panMax - panMin) / 2;
+                  tiltAngle = (tiltMin + tiltMax) / 2 + values.y * (tiltMax - tiltMin) / 2;
+
+                  panAngle = Math.max(panMin, Math.min(panMax, panAngle));
+                  tiltAngle = Math.max(tiltMin, Math.min(tiltMax, tiltAngle));
+
+                  socket.emit('pan_control', { angle: panAngle });
+                  socket.emit('tilt_control', { angle: tiltAngle });
+                  updatePositionDisplay();
+              }
+          }
+
+          animationId = requestAnimationFrame(drawControls);
+      }
+
+      function handleFire() {
+          if (!fireReady) return;
+
+          const mode = 'single';
+          const sound = document.getElementById('sound-effect').value;
+          socket.emit('fire_control', { mode, sound });
+      }
+
+      // 頁面載入後初始化
       window.addEventListener('load', () => {
-          initMouseControl();
+          initVirtualControls();
       });
 
       // SocketIO 事件處理
@@ -570,10 +767,12 @@
           updateConnectionStatus('control-active', '控制中');
           hideControlRequest();
 
+          // 顯示搖桿畫布
+          document.getElementById('joystick-canvas').style.display = 'block';
+          document.getElementById('control-hint').style.display = 'block';
+
           if (data.emergency) {
-              showNotification('🚨 瞌睡下模式啟動 - 自動獲得控制權限！', 'warning');
-              // 顯示準星
-              document.getElementById('crosshair').style.display = 'block';
+              showNotification('🚨 緊急模式啟動 - 自動獲得控制權限！', 'warning');
           } else {
               showNotification('🎮 控制權限已獲得', 'success');
           }
@@ -602,9 +801,9 @@
           controlActive = false;
           updateConnectionStatus('connected', '已連接');
 
-          // 隱藏準星
-          const crosshair = document.getElementById('crosshair');
-          crosshair.style.display = 'none';
+          // 隱藏搖桿畫布和提示
+          document.getElementById('joystick-canvas').style.display = 'none';
+          document.getElementById('control-hint').style.display = 'none';
 
           // 顯示警告通知
           showNotification('⚠️ ' + data.message, 'warning');
@@ -625,6 +824,18 @@
 
       socket.on('fire_success', (data) => {
           showNotification('🎯 射擊成功！', 'success');
+          // 設置射擊冷卻
+          fireReady = false;
+          if (fireButton) {
+              fireButton.setCooldown(true);
+          }
+          // 0.5 秒後恢復
+          setTimeout(() => {
+              fireReady = true;
+              if (fireButton) {
+                  fireButton.setCooldown(false);
+              }
+          }, 500);
       });
 
       socket.on('fire_denied', (data) => {
@@ -729,11 +940,9 @@
       // ESC 鍵停止所有動作
       document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && controlActive) {
-              // 隱藏準星
-              const crosshair = document.getElementById('crosshair');
-              if (crosshair) {
-                  crosshair.style.display = 'none';
-              }
+              // 隱藏搖桿畫布和提示
+              document.getElementById('joystick-canvas').style.display = 'none';
+              document.getElementById('control-hint').style.display = 'none';
 
               // 結束控制
               socket.emit('control_end');
