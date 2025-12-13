@@ -188,18 +188,23 @@ class WebRemoteControl:
         def handle_disconnect():
             """客戶端斷開"""
             client_id = request.sid
-            
-            print(f"❌ 客戶端斷開: {client_id}")
-            
+
+            print("\n" + "="*50)
+            print("❌ 客戶端斷開連接")
+            print(f"  - 客戶端 ID: {client_id}")
+            print(f"  - 是否為控制者: {self.current_controller == client_id}")
+            print(f"  - 剩餘連接數: {len(self.connected_clients) - 1}")
+            print("="*50 + "\n")
+
             if client_id in self.connected_clients:
                 self.connected_clients.remove(client_id)
-            
+
             # 如果是當前控制者，釋放控制權
             if self.current_controller == client_id:
                 self.control_active = False
                 self.current_controller = None
-                print("🔓 控制權已釋放")
-            
+                print("🔓 控制權已釋放（控制者斷線）")
+
             leave_room('controllers')
         
         @self.socketio.on('control_start')

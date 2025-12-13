@@ -837,16 +837,27 @@
       });
 
       // SocketIO 事件處理
+      let socketReady = false;
       socket.on('connect', () => {
           console.log('✅ 已連接到服務器');
           console.log('Socket ID:', socket.id);
           updateConnectionStatus('connected', '已連接');
+          socketReady = true;
+
+          // Socket 連接成功後，延遲 500ms 顯示控制請求對話框
+          setTimeout(() => {
+              if (!controlActive) {
+                  showControlRequest();
+                  console.log('📢 顯示控制權請求對話框（Socket 已就緒）');
+              }
+          }, 500);
       });
 
       socket.on('disconnect', () => {
           console.log('❌ 與服務器斷開連接');
           updateConnectionStatus('disconnected', '連接斷開');
           controlActive = false;
+          socketReady = false;
 
           // 隱藏搖桿
           const canvas = document.getElementById('joystick-canvas');
@@ -1047,7 +1058,31 @@
 
       // 按鈕事件
       document.getElementById('request-control').addEventListener('click', () => {
-          console.log('🎮 發送控制權請求...');
+          console.log('🎮 點擊控制權請求按鈕');
+          console.log('  - Socket 連接狀態:', socket.connected);
+          console.log('  - Socket 準備狀態:', socketReady);
+          console.log('  - Socket ID:', socket.id);
+
+          // 檢查連接狀態
+          if (!socket.connected || !socketReady) {
+              console.log('⚠️ Socket 未就緒，等待連接...');
+              showNotification('⚠️ 連接中，請稍候...', 'warning');
+
+              // 等待連接後再發送
+              socket.once('connect', () => {
+                  console.log('✅ Socket 重新連接成功');
+                  setTimeout(() => {
+                      if (socket.connected) {
+                          console.log('📤 發送 control_start 事件');
+                          socket.emit('control_start');
+                          showNotification('⏳ 正在請求控制權限...', 'info');
+                      }
+                  }, 200);
+              });
+              return;
+          }
+
+          console.log('📤 發送 control_start 事件');
           socket.emit('control_start');
           showNotification('⏳ 正在請求控制權限...', 'info');
       });
@@ -1153,13 +1188,7 @@
           }
       });
 
-      // 頁面載入完成後顯示控制權請求（延遲確保 DOM 完全載入）
-      setTimeout(() => {
-          if (!controlActive) {
-              showControlRequest();
-              console.log('📢 顯示控制權請求對話框');
-          }
-      }, 1500);
+      // 注意：控制權請求對話框現在由 Socket 連接事件觸發，確保連接就緒
 
       // 視訊串流錯誤處理
       document.getElementById('video-stream').addEventListener('error', () => {
