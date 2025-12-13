@@ -16,6 +16,7 @@ from datetime import datetime
 import os
 import sys
 import numpy as np
+import socket
 
 # 音頻串流
 try:
@@ -643,17 +644,36 @@ class WebRemoteControl:
             except:
                 pass
 
+    def get_local_ip(self):
+        """獲取本機的 IP 地址"""
+        try:
+            # 創建一個 UDP socket 來獲取本機 IP（不會實際發送數據）
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # 連接到外部地址（這裡使用 Google DNS）
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            return local_ip
+        except Exception as e:
+            print(f"⚠️ 無法獲取本地 IP: {e}")
+            # 如果失敗，返回 localhost
+            return "localhost"
+
     def run(self, debug=None, host=None, port=None):
         """運行 Flask 應用"""
         host = host or self.config.FLASK_HOST
         port = port or self.config.FLASK_PORT
         debug = debug if debug is not None else self.config.FLASK_DEBUG
-        
+
+        # 獲取實際的本地 IP 地址用於顯示
+        local_ip = self.get_local_ip()
+
         print(f"\n🌐 啟動網頁遠程控制服務...")
-        print(f"   主機: {host}:{port}")
-        print(f"   控制URL: http://{host}:{port}/remote_control?auth={self.config.CONTROL_PASSWORD}")
-        print(f"   視訊URL: http://{host}:{port}/video_feed?auth={self.config.CONTROL_PASSWORD}")
-        
+        print(f"   綁定地址: {host}:{port}")
+        print(f"   本地網路 IP: {local_ip}")
+        print(f"   控制URL: http://{local_ip}:{port}/remote_control?auth={self.config.CONTROL_PASSWORD}")
+        print(f"   視訊URL: http://{local_ip}:{port}/video_feed?auth={self.config.CONTROL_PASSWORD}")
+
         self.socketio.run(self.app, host=host, port=port, debug=debug)
 
 

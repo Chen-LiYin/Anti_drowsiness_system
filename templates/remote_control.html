@@ -396,11 +396,8 @@
         </div>
       </div>
 
-      <!-- 控制面板 -->
-      <div class="controls-container">
-        <!-- 虛擬搖桿和射擊按鈕 -->
-        <canvas id="joystick-canvas" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none; background: rgba(0, 0, 0, 0.3);"></canvas>
-      </div>
+      <!-- 虛擬搖桿和射擊按鈕 (移到外面，避免被其他元素遮擋) -->
+      <canvas id="joystick-canvas" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none; background: rgba(0, 0, 0, 0.5); z-index: 1000; border-top: 2px solid rgba(0, 212, 255, 0.5);"></canvas>
 
       <!-- 設定面板 -->
       <div
@@ -637,11 +634,15 @@
       let animationId = null;
 
       function initVirtualControls() {
+          console.log('📍 開始初始化虛擬控制器...');
+
           const canvas = document.getElementById('joystick-canvas');
+          console.log('Canvas 元素存在:', !!canvas);
 
           // 設置 Canvas 實際尺寸
           canvas.width = window.innerWidth;
           canvas.height = 200;
+          console.log('Canvas 尺寸設定:', canvas.width, 'x', canvas.height);
 
           // 搖桿位置（左側）
           const joystickX = 80;
@@ -651,8 +652,14 @@
           const fireButtonX = canvas.width - 80;
           const fireButtonY = 100;
 
+          console.log('搖桿位置:', joystickX, joystickY);
+          console.log('按鈕位置:', fireButtonX, fireButtonY);
+
           joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
           fireButton = new FireButton(canvas, fireButtonX, fireButtonY, 40);
+
+          console.log('✅ 搖桿已創建:', !!joystick);
+          console.log('✅ 按鈕已創建:', !!fireButton);
 
           // 觸控/滑鼠事件處理
           const getTouchPos = (e) => {
@@ -710,9 +717,11 @@
           drawControls();
       }
 
+      let drawCount = 0;
       function drawControls() {
           const canvas = document.getElementById('joystick-canvas');
           if (!canvas) {
+              console.error('❌ Canvas 元素不存在');
               animationId = requestAnimationFrame(drawControls);
               return;
           }
@@ -727,6 +736,12 @@
               // 繪製搖桿和按鈕
               joystick.draw();
               fireButton.draw();
+
+              // 每 60 幀輸出一次調試訊息（約 1 秒）
+              drawCount++;
+              if (drawCount % 60 === 0) {
+                  console.log('🎨 正在繪製控制器 (第', drawCount, '幀)');
+              }
 
               // 根據搖桿控制雲台（只在有控制權時）
               if (controlActive && joystick.isDragging) {
@@ -756,22 +771,35 @@
 
       // 頁面載入後初始化
       window.addEventListener('load', () => {
+          console.log('🚀 頁面載入完成，開始初始化虛擬控制器...');
           initVirtualControls();
+
+          // 測試模式：立即顯示 canvas（除錯用）
+          const canvas = document.getElementById('joystick-canvas');
+          canvas.style.display = 'block';
+          console.log('✅ Canvas 已設置為顯示狀態');
+          console.log('Canvas 元素:', canvas);
+          console.log('Canvas 樣式:', canvas.style.cssText);
       });
 
       // 窗口大小改變時重新調整 Canvas
       window.addEventListener('resize', () => {
           const canvas = document.getElementById('joystick-canvas');
           if (canvas) {
+              const oldWidth = canvas.width;
               canvas.width = window.innerWidth;
               canvas.height = 200;
+              console.log('📐 Canvas 大小調整:', oldWidth, '->', canvas.width);
 
               // 更新搖桿和按鈕位置
               if (joystick && fireButton) {
                   joystick.baseX = 80;
                   joystick.baseY = 100;
+                  joystick.stickX = 80;  // 重置搖桿位置
+                  joystick.stickY = 100;
                   fireButton.x = canvas.width - 80;
                   fireButton.y = 100;
+                  console.log('🎮 控制器位置已更新');
               }
           }
       });

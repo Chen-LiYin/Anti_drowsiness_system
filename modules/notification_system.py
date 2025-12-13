@@ -14,6 +14,7 @@ from datetime import datetime
 from PIL import Image
 import os
 import sys
+import socket
 
 # 添加父目錄到路徑
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -23,7 +24,7 @@ class NotificationSystem:
     def __init__(self, config=None):
         """初始化通知系統"""
         self.config = config or Config()
-        
+
         # Telegram 配置
         self.telegram_enabled = self.config.TELEGRAM_ENABLED and bool(self.config.TELEGRAM_BOT_TOKEN)
         self.telegram_bot_token = self.config.TELEGRAM_BOT_TOKEN
@@ -33,9 +34,28 @@ class NotificationSystem:
         self.last_notification_time = 0
         self.notification_cooldown = 30  # 30秒冷卻時間避免過度通知
 
+        # 獲取本地 IP 地址
+        self.local_ip = self.get_local_ip()
+
         print(f"通知系統初始化:")
         print(f"  - Telegram: {'啟用' if self.telegram_enabled else '停用'}")
-    
+        print(f"  - 本地 IP: {self.local_ip}")
+
+    def get_local_ip(self):
+        """獲取本機的 IP 地址"""
+        try:
+            # 創建一個 UDP socket 來獲取本機 IP（不會實際發送數據）
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # 連接到外部地址（這裡使用 Google DNS）
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            return local_ip
+        except Exception as e:
+            print(f"⚠️ 無法獲取本地 IP: {e}")
+            # 如果失敗，返回 localhost
+            return "localhost"
+
     def capture_screenshot(self, frame):
         """捕獲當前畫面並轉換為base64"""
         try:
@@ -65,9 +85,8 @@ class NotificationSystem:
     
     def generate_control_link(self):
         """生成遠程控制連結"""
-        # 假設Flask應用運行在5000埠
-        base_url = f"http://{self.config.FLASK_HOST}:{self.config.FLASK_PORT}" #localhost
-        ngork_url = "https://pentapodic-gage-blier.ngrok-free.dev" #ngork tunnel URL
+        # 使用實際的本地 IP 地址而不是 0.0.0.0
+        base_url = f"http://{self.local_ip}:{self.config.FLASK_PORT}"
         control_url = f"{base_url}/remote_control?auth={self.config.CONTROL_PASSWORD}"
         return control_url
     
