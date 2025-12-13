@@ -206,23 +206,32 @@ class WebRemoteControl:
         def handle_control_start(data=None):
             """開始控制"""
             client_id = request.sid
-            
+
+            print("\n" + "="*50)
+            print("📥 收到控制權請求")
+            print(f"  - 請求者 ID: {client_id}")
+            print(f"  - 當前控制狀態: {self.control_active}")
+            print(f"  - 當前控制者: {self.current_controller}")
+            print(f"  - 連接的客戶端: {self.connected_clients}")
+            print("="*50 + "\n")
+
             # 檢查是否已有其他控制者
             if self.control_active and self.current_controller != client_id:
+                print(f"❌ 拒絕控制權請求 - 已有其他控制者: {self.current_controller}")
                 emit('control_denied', {
                     'message': '已有其他用戶在控制中',
                     'current_controller': self.current_controller
                 })
                 return
-            
+
             self.control_active = True
             self.current_controller = client_id
-            
-            print(f"🎮 控制權授予: {client_id}")
-            
-            emit('control_granted', {'controller_id': client_id})
+
+            print(f"✅ 控制權已授予: {client_id}")
+
+            emit('control_granted', {'controller_id': client_id, 'emergency': False})
             emit('controller_change', {
-                'active': True, 
+                'active': True,
                 'controller': client_id
             }, room='controllers')
         

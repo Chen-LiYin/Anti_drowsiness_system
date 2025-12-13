@@ -394,10 +394,10 @@
           <p>使用左側搖桿控制雲台方向</p>
           <p>點擊右側按鈕進行射擊</p>
         </div>
-      </div>
 
-      <!-- 虛擬搖桿和射擊按鈕 (移到外面，避免被其他元素遮擋) -->
-      <canvas id="joystick-canvas" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none; background: rgba(0, 0, 0, 0.5); z-index: 1000; border-top: 2px solid rgba(0, 212, 255, 0.5);"></canvas>
+        <!-- 虛擬搖桿和射擊按鈕 (疊加在視訊上) -->
+        <canvas id="joystick-canvas" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 150; pointer-events: auto;"></canvas>
+      </div>
 
       <!-- 設定面板（移到左上角）-->
       <div
@@ -447,6 +447,7 @@
         <button class="emergency-btn" id="stop-all">🛑 停止所有動作</button>
         <button class="emergency-btn" id="center-turret">🎯 回中心位置</button>
         <button class="emergency-btn" id="request-control-btn" style="background: rgba(0, 212, 255, 0.3); border-color: #00d4ff;">🎮 請求控制</button>
+        <button class="emergency-btn" id="debug-status" style="background: rgba(255, 165, 0, 0.3); border-color: #ffa500;">🔍 狀態調試</button>
       </div>
 
       <!-- 控制權請求對話框 -->
@@ -634,31 +635,49 @@
       let joystick = null;
       let fireButton = null;
       let animationId = null;
+      let updateCanvasSize = null;  // 全局變數，以便在其他地方調用
 
       function initVirtualControls() {
           console.log('📍 開始初始化虛擬控制器...');
 
           const canvas = document.getElementById('joystick-canvas');
+          const videoContainer = document.getElementById('video-container');
           console.log('Canvas 元素存在:', !!canvas);
 
-          // 設置 Canvas 實際尺寸
-          canvas.width = window.innerWidth;
-          canvas.height = 200;
-          console.log('Canvas 尺寸設定:', canvas.width, 'x', canvas.height);
+          // 設置 Canvas 尺寸與視訊容器相同
+          updateCanvasSize = () => {
+              const rect = videoContainer.getBoundingClientRect();
+              canvas.width = rect.width;
+              canvas.height = rect.height;
+              console.log('Canvas 尺寸設定:', canvas.width, 'x', canvas.height);
 
-          // 搖桿位置（左側）
-          const joystickX = 80;
-          const joystickY = 100;
+              // 搖桿位置（左下角）
+              const joystickX = 80;
+              const joystickY = canvas.height - 80;
 
-          // 射擊按鈕位置（右側）
-          const fireButtonX = canvas.width - 80;
-          const fireButtonY = 100;
+              // 射擊按鈕位置（右下角）
+              const fireButtonX = canvas.width - 80;
+              const fireButtonY = canvas.height - 80;
 
-          console.log('搖桿位置:', joystickX, joystickY);
-          console.log('按鈕位置:', fireButtonX, fireButtonY);
+              console.log('搖桿位置:', joystickX, joystickY);
+              console.log('按鈕位置:', fireButtonX, fireButtonY);
 
-          joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
-          fireButton = new FireButton(canvas, fireButtonX, fireButtonY, 40);
+              if (joystick && fireButton) {
+                  // 更新現有控制器的位置
+                  joystick.baseX = joystickX;
+                  joystick.baseY = joystickY;
+                  joystick.stickX = joystickX;
+                  joystick.stickY = joystickY;
+                  fireButton.x = fireButtonX;
+                  fireButton.y = fireButtonY;
+              } else {
+                  // 首次創建控制器
+                  joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
+                  fireButton = new FireButton(canvas, fireButtonX, fireButtonY, 40);
+              }
+          };
+
+          updateCanvasSize();
 
           console.log('✅ 搖桿已創建:', !!joystick);
           console.log('✅ 按鈕已創建:', !!fireButton);
@@ -741,6 +760,13 @@
 
           // 如果 canvas 是顯示狀態，就繪製搖桿
           if (canvas.style.display !== 'none' && joystick && fireButton) {
+              // 繪製左下角搖桿區域背景
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+              ctx.fillRect(0, canvas.height - 180, 180, 180);
+
+              // 繪製右下角按鈕區域背景
+              ctx.fillRect(canvas.width - 180, canvas.height - 180, 180, 180);
+
               // 繪製搖桿和按鈕
               joystick.draw();
               fireButton.draw();
@@ -788,20 +814,23 @@
       // 窗口大小改變時重新調整 Canvas
       window.addEventListener('resize', () => {
           const canvas = document.getElementById('joystick-canvas');
-          if (canvas) {
+          const videoContainer = document.getElementById('video-container');
+
+          if (canvas && videoContainer) {
+              const rect = videoContainer.getBoundingClientRect();
               const oldWidth = canvas.width;
-              canvas.width = window.innerWidth;
-              canvas.height = 200;
+              canvas.width = rect.width;
+              canvas.height = rect.height;
               console.log('📐 Canvas 大小調整:', oldWidth, '->', canvas.width);
 
-              // 更新搖桿和按鈕位置
+              // 更新搖桿和按鈕位置（左下角和右下角）
               if (joystick && fireButton) {
                   joystick.baseX = 80;
-                  joystick.baseY = 100;
-                  joystick.stickX = 80;  // 重置搖桿位置
-                  joystick.stickY = 100;
+                  joystick.baseY = canvas.height - 80;
+                  joystick.stickX = 80;
+                  joystick.stickY = canvas.height - 80;
                   fireButton.x = canvas.width - 80;
-                  fireButton.y = 100;
+                  fireButton.y = canvas.height - 80;
                   console.log('🎮 控制器位置已更新');
               }
           }
@@ -809,43 +838,90 @@
 
       // SocketIO 事件處理
       socket.on('connect', () => {
-          console.log('已連接到服務器');
+          console.log('✅ 已連接到服務器');
+          console.log('Socket ID:', socket.id);
           updateConnectionStatus('connected', '已連接');
       });
 
       socket.on('disconnect', () => {
-          console.log('與服務器斷開連接');
+          console.log('❌ 與服務器斷開連接');
           updateConnectionStatus('disconnected', '連接斷開');
           controlActive = false;
+
+          // 隱藏搖桿
+          const canvas = document.getElementById('joystick-canvas');
+          if (canvas) {
+              canvas.style.display = 'none';
+          }
       });
 
       socket.on('control_granted', (data) => {
+          console.log('==========================================');
+          console.log('🎮 收到 control_granted 事件');
+          console.log('事件資料:', data);
+          console.log('==========================================');
+
           controlActive = true;
           updateConnectionStatus('control-active', '控制中');
           hideControlRequest();
 
           // 顯示搖桿畫布
           const canvas = document.getElementById('joystick-canvas');
+          if (!canvas) {
+              console.error('❌ 找不到 Canvas 元素！');
+              return;
+          }
+
+          console.log('Canvas 當前 display:', canvas.style.display);
           canvas.style.display = 'block';
+          console.log('Canvas 設置後 display:', canvas.style.display);
+
+          // 重新調整 Canvas 尺寸（確保與視訊容器同步）
+          if (updateCanvasSize) {
+              updateCanvasSize();
+              console.log('🔄 已重新調整 Canvas 尺寸');
+          }
+
+          console.log('Canvas 可見性:', window.getComputedStyle(canvas).display);
 
           // 顯示控制提示（3秒後自動隱藏）
           const hint = document.getElementById('control-hint');
-          hint.style.display = 'block';
-          setTimeout(() => {
-              hint.style.display = 'none';
-          }, 3000);
+          if (hint) {
+              hint.style.display = 'block';
+              setTimeout(() => {
+                  hint.style.display = 'none';
+              }, 3000);
+          }
 
-          console.log('🎮 控制權已授予');
-          console.log('Canvas 尺寸:', canvas.width, 'x', canvas.height);
-          console.log('搖桿狀態:', joystick ? '已初始化' : '未初始化');
-          console.log('按鈕狀態:', fireButton ? '已初始化' : '未初始化');
-          console.log('controlActive:', controlActive);
+          console.log('📊 控制器狀態檢查:');
+          console.log('  - Canvas 尺寸:', canvas.width, 'x', canvas.height);
+          console.log('  - 搖桿狀態:', joystick ? '已初始化' : '未初始化');
+          console.log('  - 按鈕狀態:', fireButton ? '已初始化' : '未初始化');
+          console.log('  - controlActive:', controlActive);
+
+          // 強制重新繪製一次
+          if (joystick && fireButton) {
+              const ctx = canvas.getContext('2d');
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+              // 繪製背景
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+              ctx.fillRect(0, canvas.height - 180, 180, 180);
+              ctx.fillRect(canvas.width - 180, canvas.height - 180, 180, 180);
+
+              // 繪製控制器
+              joystick.draw();
+              fireButton.draw();
+              console.log('✅ 已強制重新繪製控制器');
+          }
 
           if (data.emergency) {
               showNotification('🚨 緊急模式啟動 - 自動獲得控制權限！', 'warning');
           } else {
               showNotification('🎮 控制權限已獲得 - 可以使用搖桿控制了！', 'success');
           }
+
+          console.log('==========================================');
       });
 
       socket.on('emergency_control_available', (data) => {
@@ -863,6 +939,7 @@
       });
 
       socket.on('control_denied', (data) => {
+          console.log('❌ 控制權被拒絕:', data);
           showNotification('❌ ' + data.message, 'error');
       });
 
@@ -970,7 +1047,9 @@
 
       // 按鈕事件
       document.getElementById('request-control').addEventListener('click', () => {
+          console.log('🎮 發送控制權請求...');
           socket.emit('control_start');
+          showNotification('⏳ 正在請求控制權限...', 'info');
       });
 
       document.getElementById('cancel-control').addEventListener('click', () => {
@@ -1013,6 +1092,49 @@
               showNotification('✅ 您已經有控制權了', 'info');
           } else {
               showControlRequest();
+          }
+      });
+
+      // 調試按鈕 - 顯示當前狀態
+      document.getElementById('debug-status').addEventListener('click', () => {
+          const canvas = document.getElementById('joystick-canvas');
+          const debugInfo = `
+🔍 系統狀態調試:
+━━━━━━━━━━━━━━━━━━━━━━━━
+📡 連接狀態:
+  - Socket 已連接: ${socket.connected}
+  - Socket ID: ${socket.id || '未連接'}
+
+🎮 控制狀態:
+  - 控制權啟用: ${controlActive}
+  - Pan 角度: ${panAngle.toFixed(1)}°
+  - Tilt 角度: ${tiltAngle.toFixed(1)}°
+
+🎯 Canvas 狀態:
+  - Canvas 存在: ${!!canvas}
+  - Canvas display: ${canvas ? canvas.style.display : 'N/A'}
+  - Canvas 寬度: ${canvas ? canvas.width : 'N/A'}
+  - Canvas 高度: ${canvas ? canvas.height : 'N/A'}
+
+🕹️ 控制器狀態:
+  - 搖桿初始化: ${!!joystick}
+  - 按鈕初始化: ${!!fireButton}
+  - 搖桿拖動中: ${joystick ? joystick.isDragging : 'N/A'}
+  - 按鈕按下: ${fireButton ? fireButton.isPressed : 'N/A'}
+
+🔧 射擊狀態:
+  - 射擊準備: ${fireReady}
+━━━━━━━━━━━━━━━━━━━━━━━━
+          `.trim();
+
+          console.log(debugInfo);
+          alert(debugInfo);
+
+          // 如果有 canvas 但不可見，嘗試修復
+          if (canvas && canvas.style.display === 'none' && controlActive) {
+              console.log('⚠️ 檢測到 Canvas 應該顯示但被隱藏，正在修復...');
+              canvas.style.display = 'block';
+              showNotification('🔧 已嘗試修復 Canvas 顯示問題', 'info');
           }
       });
 
