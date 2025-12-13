@@ -399,7 +399,7 @@
       <!-- 控制面板 -->
       <div class="controls-container">
         <!-- 虛擬搖桿和射擊按鈕 -->
-        <canvas id="joystick-canvas" width="800" height="200" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none;"></canvas>
+        <canvas id="joystick-canvas" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; display: none; background: rgba(0, 0, 0, 0.3);"></canvas>
       </div>
 
       <!-- 設定面板 -->
@@ -638,14 +638,17 @@
 
       function initVirtualControls() {
           const canvas = document.getElementById('joystick-canvas');
-          const rect = canvas.getBoundingClientRect();
+
+          // 設置 Canvas 實際尺寸
+          canvas.width = window.innerWidth;
+          canvas.height = 200;
 
           // 搖桿位置（左側）
           const joystickX = 80;
           const joystickY = 100;
 
           // 射擊按鈕位置（右側）
-          const fireButtonX = rect.width - 80;
+          const fireButtonX = canvas.width - 80;
           const fireButtonY = 100;
 
           joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
@@ -709,18 +712,24 @@
 
       function drawControls() {
           const canvas = document.getElementById('joystick-canvas');
+          if (!canvas) {
+              animationId = requestAnimationFrame(drawControls);
+              return;
+          }
+
           const ctx = canvas.getContext('2d');
 
           // 清空畫布
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          if (controlActive) {
+          // 如果 canvas 是顯示狀態，就繪製搖桿
+          if (canvas.style.display !== 'none' && joystick && fireButton) {
               // 繪製搖桿和按鈕
               joystick.draw();
               fireButton.draw();
 
-              // 根據搖桿控制雲台
-              if (joystick.isDragging) {
+              // 根據搖桿控制雲台（只在有控制權時）
+              if (controlActive && joystick.isDragging) {
                   const values = joystick.getValues();
                   panAngle = (panMin + panMax) / 2 + values.x * (panMax - panMin) / 2;
                   tiltAngle = (tiltMin + tiltMax) / 2 + values.y * (tiltMax - tiltMin) / 2;
@@ -750,6 +759,23 @@
           initVirtualControls();
       });
 
+      // 窗口大小改變時重新調整 Canvas
+      window.addEventListener('resize', () => {
+          const canvas = document.getElementById('joystick-canvas');
+          if (canvas) {
+              canvas.width = window.innerWidth;
+              canvas.height = 200;
+
+              // 更新搖桿和按鈕位置
+              if (joystick && fireButton) {
+                  joystick.baseX = 80;
+                  joystick.baseY = 100;
+                  fireButton.x = canvas.width - 80;
+                  fireButton.y = 100;
+              }
+          }
+      });
+
       // SocketIO 事件處理
       socket.on('connect', () => {
           console.log('已連接到服務器');
@@ -768,8 +794,14 @@
           hideControlRequest();
 
           // 顯示搖桿畫布
-          document.getElementById('joystick-canvas').style.display = 'block';
+          const canvas = document.getElementById('joystick-canvas');
+          canvas.style.display = 'block';
           document.getElementById('control-hint').style.display = 'block';
+
+          console.log('🎮 控制權已授予');
+          console.log('Canvas 尺寸:', canvas.width, 'x', canvas.height);
+          console.log('搖桿狀態:', joystick ? '已初始化' : '未初始化');
+          console.log('按鈕狀態:', fireButton ? '已初始化' : '未初始化');
 
           if (data.emergency) {
               showNotification('🚨 緊急模式啟動 - 自動獲得控制權限！', 'warning');
