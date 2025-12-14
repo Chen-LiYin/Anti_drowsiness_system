@@ -264,6 +264,9 @@ class IntegratedAntiDrowsinessSystem:
             # 設置事件記錄器
             if self.event_recorder:
                 self.web_control.set_event_recorder(self.event_recorder)
+            # 設置通知系統（用於發送一次性控制連結）
+            if self.notification_system:
+                self.web_control.set_notification_system(self.notification_system)
             
             print("✅ 網頁遠程控制系統初始化成功")
             

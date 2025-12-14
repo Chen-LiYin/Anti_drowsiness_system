@@ -707,10 +707,7 @@
           </div>
         </div>
 
-        <div
-          class="chat-input-container"
-          id="chat-input-container"
-        >
+        <div class="chat-input-container" id="chat-input-container">
           <input
             type="text"
             class="chat-input"
@@ -721,12 +718,16 @@
           <button class="chat-send-btn" id="chat-send-btn">發送</button>
         </div>
 
-        <div class="chat-status" id="chat-status">💬 隨時可以留言！等待主人睡著開始投票...</div>
+        <div class="chat-status" id="chat-status">
+          💬 隨時可以留言！等待主人睡著開始投票...
+        </div>
       </div>
     </div>
 
     <script>
       // SocketIO 連接
+      const urlParams = new URLSearchParams(window.location.search);
+      const ONE_TIME_TOKEN = urlParams.get('token');
       const socket = io();
 
       // 控制狀態（直接啟用）
@@ -1068,8 +1069,13 @@
       // SocketIO 事件處理
       socket.on('connect', () => {
           updateConnectionStatus('control-active', '控制中');
-          // 自動請求控制權限
-          socket.emit('control_start');
+          // 如果 URL 含一次性 token，先嘗試以 token 認領控制權
+          if (ONE_TIME_TOKEN) {
+            socket.emit('claim_token', { token: ONE_TIME_TOKEN });
+          } else {
+            // 否則自動請求控制權限
+            socket.emit('control_start');
+          }
       });
 
       socket.on('disconnect', () => {

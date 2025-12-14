@@ -17,6 +17,7 @@ import os
 import sys
 import numpy as np
 import socket
+import secrets
 
 # 音頻串流
 try:
@@ -94,6 +95,9 @@ class WebRemoteControl:
         self.chat_time_remaining = 0
         self.chat_timer_active = False
         self.user_nicknames = {}  # {session_id: nickname}
+        # 一次性控制連結 token 存儲: {token: {'expires_at': float, 'used': bool}}
+        self.one_time_tokens = {}
+        self.notification_system = None
 
         self.setup_routes()
         self.setup_socketio_events()
@@ -116,7 +120,16 @@ class WebRemoteControl:
             """遠程控制頁面"""
             # 簡單的密碼驗證
             auth_token = request.args.get('auth', '')
-            if auth_token != self.config.CONTROL_PASSWORD:
+            token = request.args.get('token', '')
+
+            # 若未提供密碼，但提供一次性 token 且該 token 仍存在且未過期，允許進入
+            token_valid_for_render = False
+            if token:
+                info = self.one_time_tokens.get(token)
+                if info and (not info.get('used')) and time.time() < info.get('expires_at', 0):
+                    token_valid_for_render = True
+
+            if auth_token != self.config.CONTROL_PASSWORD and not token_valid_for_render:
                 return "❌ 無效的訪問權限", 403
             
             return render_template('remote_control.html',
@@ -531,10 +544,68 @@ class WebRemoteControl:
                 'messages': self.chat_messages,
                 'user_voted': request.sid in self.chat_votes
             })
+
+        @self.socketio.on('claim_token')
+        def handle_claim_token(data):
+            """使用一次性 token 要求控制權"""
+            token = data.get('token') if data else None
+            sid = request.sid
+            if not token:
+                emit('control_denied', {'message': '缺少 token'})
+                return
+
+            valid = self.validate_and_use_token(token)
+            if not valid:
+                emit('control_denied', {'message': '無效或已過期的 token'})
+                return
+
+            # 授予控制權給該連線
+            self.control_active = True
+            self.current_controller = sid
+
+            emit('control_granted', {'controller_id': sid, 'emergency': False, 'reason': 'token'})
+            self.socketio.emit('controller_change', {
+                'active': True,
+                'controller': sid
+            }, room='controllers')
+            print(f"✅ 使用 token 授予控制權: {sid}")
     
     def is_authorized_controller(self, client_id):
         """檢查是否為授權控制者"""
         return self.control_active and self.current_controller == client_id
+
+    # ========== 一次性 token 管理 ==========
+    def generate_one_time_token(self, ttl=300):
+        """生成一次性 token，預設有效期 ttl 秒"""
+        token = secrets.token_urlsafe(16)
+        self.one_time_tokens[token] = {
+            'expires_at': time.time() + ttl,
+            'used': False
+        }
+        return token
+
+    def validate_and_use_token(self, token):
+        info = self.one_time_tokens.get(token)
+        if not info:
+            return False
+        if info.get('used'):
+            return False
+        if time.time() > info.get('expires_at', 0):
+            # token 過期，移除
+            try:
+                del self.one_time_tokens[token]
+            except KeyError:
+                pass
+            return False
+
+        # 標記為已使用
+        info['used'] = True
+        return True
+
+    def set_notification_system(self, notification_system):
+        """將 NotificationSystem 傳入以便發送控制連結"""
+        self.notification_system = notification_system
+        print("✅ 已設定 NotificationSystem 到 WebRemoteControl")
     
     def update_frame(self, frame):
         """更新視訊幀"""
@@ -793,19 +864,34 @@ class WebRemoteControl:
 
     def award_control_to_winner(self, winner_user_id, top_message):
         """授予最高票者控制權"""
-        # 檢查獲勝者是否仍然在線
+        # 若獲勝者不在線，我們會產生一次性控制連結並試著透過通知系統發送
         if winner_user_id not in self.connected_clients:
-            print(f"⚠️ 獲勝者 {winner_user_id[:8]} 已離線，無法授予控制權")
+            print(f"⚠️ 獲勝者 {winner_user_id[:8]} 已離線，將產生一次性控制連結並嘗試發送")
             self.socketio.emit('winner_offline', {
-                'message': '獲勝者已離線'
+                'message': '獲勝者已離線，已產生一次性連結供轉發'
             }, room='controllers')
-            return False
+
+            # 產生 token 並組成控制連結
+            token = self.generate_one_time_token()
+            local_ip = self.get_local_ip()
+            control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
+
+            # 如果有通知系統，使用它發送控制連結
+            if self.notification_system:
+                notif_message = f"您的留言獲得最高票！請使用以下一次性連結在短時間內獲取雲台控制權：\n{control_url}"
+                try:
+                    self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
+                    print("✅ 已透過 NotificationSystem 發送控制連結（可能需手動轉發給獲勝者）")
+                except Exception as e:
+                    print(f"⚠️ 發送控制連結失敗: {e}")
+
+            return True
 
         # 撤銷當前控制者的權限
         if self.control_active and self.current_controller != winner_user_id:
             self.revoke_remote_control(reason="最高票者獲得控制權")
 
-        # 授予控制權給獲勝者
+        # 授予控制權給獲勝者（在線情況）
         self.control_active = True
         self.current_controller = winner_user_id
 
@@ -818,6 +904,17 @@ class WebRemoteControl:
             'reason': 'winner',
             'message': f'恭喜！您的留言獲得最高票 ({top_message["votes"]} 票)，已獲得控制權！'
         }, room=winner_user_id)
+
+        # 同時產生一次性連結（可用於紀錄或額外通知）
+        if self.notification_system:
+            try:
+                token = self.generate_one_time_token()
+                local_ip = self.get_local_ip()
+                control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
+                notif_message = f"恭喜 {top_message['username']}！您的留言獲得最高票，已被授予控制權。若需要可使用以下一次性連結再次登入控制介面：\n{control_url}"
+                self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
+            except Exception as e:
+                print(f"⚠️ 發送獲勝者控制連結失敗: {e}")
 
         # 廣播給所有人
         self.socketio.emit('winner_announced', {
