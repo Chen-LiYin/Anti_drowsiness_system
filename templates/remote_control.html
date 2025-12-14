@@ -610,8 +610,13 @@
       }
 
       @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
       }
 
       /* RWD 響應式設計 */
@@ -670,10 +675,6 @@
           src="/video_feed?auth={{ config.CONTROL_PASSWORD }}"
           alt="視訊串流"
         />
-        <div class="video-overlay">
-          <div>🎥 即時串流</div>
-          <div id="stream-info">準備中...</div>
-        </div>
 
         <!-- 控制提示 -->
         <div class="control-hint" id="control-hint" style="display: none">
@@ -683,7 +684,18 @@
         </div>
 
         <!-- 虛擬搖桿和射擊按鈕 (疊加在視訊上) -->
-        <canvas id="joystick-canvas" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 150; pointer-events: auto;"></canvas>
+        <canvas
+          id="joystick-canvas"
+          style="
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 150;
+            pointer-events: auto;
+          "
+        ></canvas>
       </div>
 
       <!-- 設定面板（移到左上角）-->
@@ -729,12 +741,6 @@
         </div>
       </div>
 
-      <!-- 緊急控制 -->
-      <div class="emergency-controls">
-        <button class="emergency-btn" id="stop-all">🛑 停止所有動作</button>
-        <button class="emergency-btn" id="center-turret">🎯 回中心位置</button>
-      </div>
-
       <!-- 通知區域 -->
       <div class="notification" id="notification"></div>
 
@@ -745,8 +751,10 @@
           <button class="chat-close-btn" id="chat-close-btn">✕</button>
         </div>
 
-        <div class="chat-timer" id="chat-timer" style="display: none;">
-          <div class="timer-display">⏱️ <span id="timer-seconds">60</span>秒</div>
+        <div class="chat-timer" id="chat-timer" style="display: none">
+          <div class="timer-display">
+            ⏱️ <span id="timer-seconds">60</span>秒
+          </div>
           <div class="timer-hint">第一個人進入後開始計時</div>
         </div>
 
@@ -759,7 +767,11 @@
           </div>
         </div>
 
-        <div class="chat-input-container" id="chat-input-container" style="display: none;">
+        <div
+          class="chat-input-container"
+          id="chat-input-container"
+          style="display: none"
+        >
           <input
             type="text"
             class="chat-input"
@@ -770,14 +782,13 @@
           <button class="chat-send-btn" id="chat-send-btn">發送</button>
         </div>
 
-        <div class="chat-status" id="chat-status">
-          等待聊天會話開始...
-        </div>
+        <div class="chat-status" id="chat-status">等待聊天會話開始...</div>
       </div>
 
       <!-- 聊天室切換按鈕 -->
       <button class="chat-toggle-btn" id="chat-toggle-btn">
-        💬 <span class="chat-badge" id="chat-badge" style="display: none;">!</span>
+        💬
+        <span class="chat-badge" id="chat-badge" style="display: none">!</span>
       </button>
     </div>
 
@@ -1364,15 +1375,33 @@
       const chatBadge = document.getElementById('chat-badge');
       const chatInputContainer = document.getElementById('chat-input-container');
 
-      // 切換聊天室
-      chatToggleBtn.addEventListener('click', () => {
-          chatSidebar.classList.toggle('open');
-          chatBadge.style.display = 'none';
-      });
+      // 除錯：確認元素是否存在
+      console.log('聊天室元素檢查:');
+      console.log('chatSidebar:', chatSidebar);
+      console.log('chatToggleBtn:', chatToggleBtn);
+      console.log('chatCloseBtn:', chatCloseBtn);
 
-      chatCloseBtn.addEventListener('click', () => {
-          chatSidebar.classList.remove('open');
-      });
+      // 切換聊天室
+      if (chatToggleBtn && chatSidebar) {
+          chatToggleBtn.addEventListener('click', () => {
+              console.log('聊天室切換按鈕被點擊');
+              console.log('切換前 classList:', chatSidebar.classList);
+              chatSidebar.classList.toggle('open');
+              console.log('切換後 classList:', chatSidebar.classList);
+              if (chatBadge) {
+                  chatBadge.style.display = 'none';
+              }
+          });
+      } else {
+          console.error('聊天室元素未找到！chatToggleBtn:', chatToggleBtn, 'chatSidebar:', chatSidebar);
+      }
+
+      if (chatCloseBtn && chatSidebar) {
+          chatCloseBtn.addEventListener('click', () => {
+              console.log('聊天室關閉按鈕被點擊');
+              chatSidebar.classList.remove('open');
+          });
+      }
 
       // 發送訊息
       function sendMessage() {
