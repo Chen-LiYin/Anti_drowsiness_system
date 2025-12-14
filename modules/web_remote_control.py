@@ -910,10 +910,18 @@ class WebRemoteControl:
 
     def award_control_to_winner(self, winner_user_id, top_message):
         """授予最高票者控制權"""
+        # 嘗試處理使用者可能重新連線（sid 變更）: 透過暱稱尋找當前連線
+        winner_nickname = top_message.get('username')
+        # 找到當前與該暱稱對應的 sid（若有）
+        current_sids_for_nick = [sid for sid, nick in self.user_nicknames.items() if nick == winner_nickname]
+        if current_sids_for_nick:
+            # 使用最新的 sid 作為 winner_user_id（代表使用者已重新連線）
+            winner_user_id = current_sids_for_nick[0]
+
         # 若獲勝者不在線，我們會產生一次性控制連結並試著透過通知系統發送
         control_url = None
         if winner_user_id not in self.connected_clients:
-            print(f"⚠️ 獲勝者 {winner_user_id[:8]} 已離線，將產生一次性控制連結並嘗試發送")
+            print(f"⚠️ 獲勝者 {winner_nickname} ({winner_user_id[:8]}) 已離線，將產生一次性控制連結並嘗試發送")
             self.socketio.emit('winner_offline', {
                 'message': '獲勝者已離線，已產生一次性連結供轉發'
             }, room='controllers')

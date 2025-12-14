@@ -402,8 +402,12 @@
           showNotification(`🏆 獲勝留言: ${d.top_message.message}`, 'success');
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
 
-          // 如果 payload 包含 control_url 且當前使用者為獲勝者，顯示控制連結
-          if (d.control_url && d.top_message.user_id === socket.id) {
+          // 如果 payload 包含 control_url 且當前使用者為獲勝者（比對暱稱），顯示控制連結
+          if (
+            d.control_url &&
+            myNickname &&
+            d.top_message.username === myNickname
+          ) {
             chatStatus.innerHTML = `🏆 你獲勝！<a href="${d.control_url}" style="color:#00d4ff;">點此進入控制介面</a>`;
           }
         } else {
