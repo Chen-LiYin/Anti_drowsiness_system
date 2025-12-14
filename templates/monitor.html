@@ -6,6 +6,42 @@
     <title>瞌睡監控 - 智能防瞌睡系統</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <!-- Toastify (local with CDN fallback) -->
+    <link rel="stylesheet" href="/static/vendor/toastify/toastify.css" />
+    <script src="/static/vendor/toastify/toastify.js"></script>
+    <script>
+      (function () {
+        function loadCSS(url) {
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = url;
+          document.head.appendChild(l);
+        }
+        function loadScript(url, cb) {
+          var s = document.createElement('script');
+          s.src = url;
+          s.onload = cb || function () {};
+          document.head.appendChild(s);
+        }
+        setTimeout(function () {
+          if (!window.Toastify) {
+            console.warn('Local Toastify not found, loading CDN fallback');
+            loadCSS(
+              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css'
+            );
+            loadScript(
+              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js',
+              function () {
+                console.log(
+                  'Toastify loaded from CDN fallback:',
+                  !!window.Toastify
+                );
+              }
+            );
+          }
+        }, 150);
+      })();
+    </script>
     <style>
       * {
         margin: 0;
@@ -322,6 +358,42 @@
         $('#connectionStatus').css('color', '#28a745').text('●');
       });
 
+      // 顯示可點擊的 Toastify 連結
+      function showLinkToast(message, url, type = 'info') {
+        var bg =
+          {
+            success: 'linear-gradient(90deg, #00b09b, #96c93d)',
+            error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
+            warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
+            info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+          }[type] || 'linear-gradient(90deg, #00d4ff, #0099cc)';
+
+        if (window.Toastify) {
+          Toastify({
+            text: message,
+            duration: 10000,
+            close: true,
+            gravity: 'top',
+            position: 'right',
+            style: { background: bg },
+            node: (function () {
+              var n = document.createElement('div');
+              var a = document.createElement('a');
+              a.href = url;
+              a.target = '_blank';
+              a.style.color = '#fff';
+              a.style.textDecoration = 'underline';
+              a.textContent = ' 點此開啟';
+              n.appendChild(document.createTextNode(message));
+              n.appendChild(a);
+              return n;
+            })(),
+          }).showToast();
+        } else {
+          console.log(message, url);
+        }
+      }
+
       socket.on('disconnect', function () {
         console.log('❌ 已斷開連接');
         $('#connectionStatus').css('color', '#dc3545').text('●');
@@ -357,6 +429,19 @@
 
       socket.on('yawn_warning', function (data) {
         console.log('🥱 打哈欠警告', data);
+      });
+
+      // 接收監控或控制連結
+      socket.on('monitor_link', function (data) {
+        if (data && data.url) {
+          showLinkToast('🔎 已收到監控連結', data.url, 'info');
+        }
+      });
+
+      socket.on('control_link', function (data) {
+        if (data && data.url) {
+          showLinkToast('🏆 已收到控制連結，點擊開啟', data.url, 'success');
+        }
       });
 
       // 功能函數
