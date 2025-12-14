@@ -107,7 +107,13 @@ class NotificationSystem:
 眼睛閉合幀數: {eye_counter}
 總瞌睡事件: {total_drowsy} 次
 
-立即控制: 點擊下方連結
+💬 互動聊天室已開啟！
+- 限時 60 秒留言時間
+- 每人可留言一句話
+- 大家可以投票
+- 最高票者將獲得雲台控制權！
+
+立即加入: 點擊下方連結
 遠程喚醒系統已啟用"""
 
         return message

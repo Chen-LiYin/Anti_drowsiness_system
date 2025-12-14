@@ -359,6 +359,293 @@
       .notification.info {
         border-color: #00d4ff;
       }
+
+      /* ========== 聊天室樣式 ========== */
+      .chat-sidebar {
+        position: fixed;
+        top: 0;
+        right: -350px;
+        width: 350px;
+        height: 100vh;
+        background: linear-gradient(180deg, #16213e 0%, #0f3460 100%);
+        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+        transition: right 0.3s ease;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-sidebar.open {
+        right: 0;
+      }
+
+      .chat-header {
+        background: rgba(0, 212, 255, 0.1);
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #00d4ff;
+      }
+
+      .chat-header h3 {
+        margin: 0;
+        color: #00d4ff;
+        font-size: 1.2rem;
+      }
+
+      .chat-close-btn {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.2rem 0.5rem;
+        transition: all 0.2s ease;
+      }
+
+      .chat-close-btn:hover {
+        color: #e74c3c;
+        transform: rotate(90deg);
+      }
+
+      .chat-timer {
+        background: rgba(243, 156, 18, 0.2);
+        padding: 1rem;
+        text-align: center;
+        border-bottom: 1px solid rgba(243, 156, 18, 0.5);
+      }
+
+      .timer-display {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #f39c12;
+      }
+
+      .timer-hint {
+        font-size: 0.8rem;
+        color: #ccc;
+        margin-top: 0.3rem;
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+      }
+
+      .chat-welcome {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #aaa;
+      }
+
+      .chat-welcome p {
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+      }
+
+      .chat-message {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin-bottom: 0.8rem;
+        border-left: 3px solid #00d4ff;
+        transition: all 0.2s ease;
+      }
+
+      .chat-message:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .chat-message.voted {
+        border-left-color: #27ae60;
+      }
+
+      .message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .message-username {
+        font-weight: bold;
+        color: #00d4ff;
+        font-size: 0.9rem;
+      }
+
+      .message-votes {
+        background: rgba(231, 76, 60, 0.2);
+        color: #e74c3c;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+      }
+
+      .message-text {
+        color: #fff;
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+      }
+
+      .message-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .message-time {
+        font-size: 0.75rem;
+        color: #888;
+      }
+
+      .vote-btn {
+        background: linear-gradient(45deg, #27ae60, #2ecc71);
+        border: none;
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+      }
+
+      .vote-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(46, 204, 113, 0.4);
+      }
+
+      .vote-btn:disabled {
+        background: #555;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .chat-input-container {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .chat-input {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        padding: 0.6rem 1rem;
+        color: #fff;
+        font-size: 0.9rem;
+      }
+
+      .chat-input:focus {
+        outline: none;
+        border-color: #00d4ff;
+        box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+      }
+
+      .chat-send-btn {
+        background: linear-gradient(45deg, #00d4ff, #0099cc);
+        border: none;
+        color: white;
+        padding: 0.6rem 1.2rem;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: bold;
+        transition: all 0.2s ease;
+      }
+
+      .chat-send-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+      }
+
+      .chat-status {
+        padding: 0.8rem;
+        text-align: center;
+        font-size: 0.85rem;
+        color: #aaa;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .chat-toggle-btn {
+        position: fixed;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        background: linear-gradient(45deg, #00d4ff, #0099cc);
+        border: none;
+        color: white;
+        padding: 1rem;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        z-index: 1999;
+        transition: all 0.3s ease;
+      }
+
+      .chat-toggle-btn:hover {
+        transform: translateY(-50%) scale(1.1);
+        box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6);
+      }
+
+      .chat-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #e74c3c;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+      }
+
+      /* RWD 響應式設計 */
+      @media (max-width: 768px) {
+        .chat-sidebar {
+          width: 100%;
+          right: -100%;
+        }
+
+        .chat-toggle-btn {
+          right: 15px;
+          bottom: 15px;
+          top: auto;
+          transform: none;
+        }
+
+        .chat-toggle-btn:hover {
+          transform: scale(1.1);
+        }
+      }
+
+      @media (max-width: 480px) {
+        .chat-message {
+          padding: 0.6rem;
+        }
+
+        .message-text {
+          font-size: 0.85rem;
+        }
+
+        .chat-input {
+          font-size: 0.85rem;
+        }
+      }
     </style>
   </head>
   <body>
@@ -450,6 +737,48 @@
 
       <!-- 通知區域 -->
       <div class="notification" id="notification"></div>
+
+      <!-- 聊天室側邊欄 -->
+      <div class="chat-sidebar" id="chat-sidebar">
+        <div class="chat-header">
+          <h3>💬 互動聊天室</h3>
+          <button class="chat-close-btn" id="chat-close-btn">✕</button>
+        </div>
+
+        <div class="chat-timer" id="chat-timer" style="display: none;">
+          <div class="timer-display">⏱️ <span id="timer-seconds">60</span>秒</div>
+          <div class="timer-hint">第一個人進入後開始計時</div>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-welcome">
+            <p>🎯 歡迎來到互動聊天室</p>
+            <p>主人睡著時會開啟聊天會話</p>
+            <p>您可以留言並投票給最佳留言</p>
+            <p>最高票者將獲得雲台控制權！</p>
+          </div>
+        </div>
+
+        <div class="chat-input-container" id="chat-input-container" style="display: none;">
+          <input
+            type="text"
+            class="chat-input"
+            id="chat-input"
+            placeholder="輸入您的留言（最多50字）..."
+            maxlength="50"
+          />
+          <button class="chat-send-btn" id="chat-send-btn">發送</button>
+        </div>
+
+        <div class="chat-status" id="chat-status">
+          等待聊天會話開始...
+        </div>
+      </div>
+
+      <!-- 聊天室切換按鈕 -->
+      <button class="chat-toggle-btn" id="chat-toggle-btn">
+        💬 <span class="chat-badge" id="chat-badge" style="display: none;">!</span>
+      </button>
     </div>
 
     <script>
@@ -1015,6 +1344,229 @@
           } else {
               // 發送停用請求到後端
               socket.emit('audio_enable', { enable: false });
+          }
+      });
+
+      // ============ 聊天室功能 ============
+      let chatActive = false;
+      let userVoted = false;
+      let userMessage = null;
+
+      const chatSidebar = document.getElementById('chat-sidebar');
+      const chatToggleBtn = document.getElementById('chat-toggle-btn');
+      const chatCloseBtn = document.getElementById('chat-close-btn');
+      const chatMessages = document.getElementById('chat-messages');
+      const chatInput = document.getElementById('chat-input');
+      const chatSendBtn = document.getElementById('chat-send-btn');
+      const chatStatus = document.getElementById('chat-status');
+      const chatTimer = document.getElementById('chat-timer');
+      const timerSeconds = document.getElementById('timer-seconds');
+      const chatBadge = document.getElementById('chat-badge');
+      const chatInputContainer = document.getElementById('chat-input-container');
+
+      // 切換聊天室
+      chatToggleBtn.addEventListener('click', () => {
+          chatSidebar.classList.toggle('open');
+          chatBadge.style.display = 'none';
+      });
+
+      chatCloseBtn.addEventListener('click', () => {
+          chatSidebar.classList.remove('open');
+      });
+
+      // 發送訊息
+      function sendMessage() {
+          const message = chatInput.value.trim();
+          if (!message) {
+              showNotification('請輸入訊息', 'warning');
+              return;
+          }
+
+          if (message.length > 50) {
+              showNotification('訊息不能超過 50 字', 'warning');
+              return;
+          }
+
+          socket.emit('send_message', { message: message });
+          chatInput.value = '';
+      }
+
+      chatSendBtn.addEventListener('click', sendMessage);
+      chatInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+              sendMessage();
+          }
+      });
+
+      // 投票
+      function voteMessage(messageId) {
+          socket.emit('vote_message', { message_id: messageId });
+      }
+
+      // 格式化時間
+      function formatTime(isoString) {
+          const date = new Date(isoString);
+          return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      // 渲染訊息
+      function renderMessage(msg, canVote) {
+          const messageDiv = document.createElement('div');
+          messageDiv.className = 'chat-message';
+          messageDiv.dataset.messageId = msg.id;
+
+          messageDiv.innerHTML = `
+              <div class="message-header">
+                  <span class="message-username">${msg.username}</span>
+                  <span class="message-votes">❤️ ${msg.votes}</span>
+              </div>
+              <div class="message-text">${msg.message}</div>
+              <div class="message-footer">
+                  <span class="message-time">${formatTime(msg.timestamp)}</span>
+                  ${canVote ? `<button class="vote-btn" onclick="voteMessage('${msg.id}')">👍 投票</button>` : ''}
+              </div>
+          `;
+
+          return messageDiv;
+      }
+
+      // 更新聊天室訊息列表
+      function updateChatMessages(messages) {
+          chatMessages.innerHTML = '';
+          messages.forEach(msg => {
+              const canVote = !userVoted && chatActive;
+              chatMessages.appendChild(renderMessage(msg, canVote));
+          });
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      // ========== Socket.IO 事件監聽 ==========
+
+      // 聊天會話開始
+      socket.on('chat_session_started', (data) => {
+          console.log('💬 聊天會話開始:', data);
+          chatActive = true;
+          userVoted = false;
+          userMessage = null;
+
+          chatStatus.textContent = '🎯 聊天會話進行中 - 快來留言吧！';
+          chatTimer.style.display = 'block';
+          chatInputContainer.style.display = 'flex';
+          chatBadge.style.display = 'block';
+
+          showNotification(data.message, 'success');
+
+          // 自動打開聊天室
+          chatSidebar.classList.add('open');
+      });
+
+      // 倒數計時更新
+      socket.on('chat_timer_update', (data) => {
+          timerSeconds.textContent = data.time_remaining;
+
+          // 最後 10 秒變紅色
+          if (data.time_remaining <= 10) {
+              timerSeconds.style.color = '#e74c3c';
+          }
+      });
+
+      // 倒數計時警告
+      socket.on('chat_warning', (data) => {
+          showNotification(data.message, 'warning');
+      });
+
+      // 倒數計時結束
+      socket.on('chat_timer_ended', (data) => {
+          showNotification(data.message, 'info');
+          chatInputContainer.style.display = 'none';
+          chatStatus.textContent = '⏰ 聊天時間結束 - 投票已截止';
+      });
+
+      // 新訊息
+      socket.on('new_message', (message) => {
+          console.log('💬 收到新訊息:', message);
+          const canVote = !userVoted && chatActive;
+          chatMessages.appendChild(renderMessage(message, canVote));
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+
+          // 如果不是自己的訊息，顯示通知
+          if (message.user_id !== socket.id) {
+              showNotification(`${message.username}: ${message.message}`, 'info');
+          }
+      });
+
+      // 投票更新
+      socket.on('vote_update', (data) => {
+          console.log('🗳️ 投票更新:', data);
+          const messageDiv = document.querySelector(`[data-message-id="${data.message_id}"]`);
+          if (messageDiv) {
+              const votesSpan = messageDiv.querySelector('.message-votes');
+              votesSpan.textContent = `❤️ ${data.votes}`;
+          }
+      });
+
+      // 投票成功
+      socket.on('vote_success', (data) => {
+          userVoted = true;
+          showNotification('投票成功！', 'success');
+
+          // 禁用所有投票按鈕
+          document.querySelectorAll('.vote-btn').forEach(btn => {
+              btn.disabled = true;
+              btn.textContent = '已投票';
+          });
+      });
+
+      // 聊天錯誤
+      socket.on('chat_error', (data) => {
+          showNotification(data.message, 'error');
+      });
+
+      // 聊天會話結束
+      socket.on('chat_session_ended', (data) => {
+          console.log('💬 聊天會話結束:', data);
+          chatActive = false;
+          chatTimer.style.display = 'none';
+          chatInputContainer.style.display = 'none';
+
+          if (data.top_message) {
+              showNotification(`🏆 獲勝留言: ${data.top_message.message}`, 'success');
+              chatStatus.textContent = `🏆 獲勝者: ${data.top_message.username} (${data.top_message.votes} 票)`;
+          } else {
+              chatStatus.textContent = '聊天會話已結束';
+          }
+
+          showNotification(data.message, 'info');
+      });
+
+      // 獲勝者宣布
+      socket.on('winner_announced', (data) => {
+          console.log('🏆 獲勝者:', data);
+          showNotification(`🏆 ${data.winner} 獲得控制權！留言: ${data.message}`, 'success');
+      });
+
+      // 獲勝者離線
+      socket.on('winner_offline', (data) => {
+          showNotification(data.message, 'warning');
+      });
+
+      // 獲取聊天狀態（連接時）
+      socket.on('connect', () => {
+          socket.emit('get_chat_status');
+      });
+
+      // 聊天狀態響應
+      socket.on('chat_status', (data) => {
+          console.log('💬 聊天狀態:', data);
+          chatActive = data.active;
+          userVoted = data.user_voted;
+
+          if (data.active) {
+              chatTimer.style.display = 'block';
+              chatInputContainer.style.display = 'flex';
+              timerSeconds.textContent = data.time_remaining;
+              updateChatMessages(data.messages);
+              chatStatus.textContent = '🎯 聊天會話進行中';
           }
       });
     </script>

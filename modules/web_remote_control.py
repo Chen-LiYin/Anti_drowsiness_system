@@ -85,6 +85,16 @@ class WebRemoteControl:
         self.audio_thread = None
         self.audio_running = False
 
+        # 聊天室系統
+        self.chat_active = False
+        self.chat_session_id = None
+        self.chat_messages = []  # [{id, user_id, username, message, votes, timestamp}]
+        self.chat_votes = {}  # {user_id: message_id} - 記錄每個用戶投給誰
+        self.chat_timer_thread = None
+        self.chat_time_remaining = 0
+        self.chat_timer_active = False
+        self.user_nicknames = {}  # {session_id: nickname}
+
         self.setup_routes()
         self.setup_socketio_events()
 
@@ -409,6 +419,121 @@ class WebRemoteControl:
                 print(f"🔇 客戶端 {request.sid} 請求停用音頻")
                 self.stop_audio_stream()
                 emit('audio_status', {'enabled': False, 'message': '音頻串流已停止'})
+
+        # ========== 聊天室事件處理 ==========
+
+        @self.socketio.on('set_nickname')
+        def handle_set_nickname(data):
+            """設置用戶暱稱"""
+            nickname = data.get('nickname', '').strip()
+            if nickname and len(nickname) <= 20:
+                self.user_nicknames[request.sid] = nickname
+                emit('nickname_set', {'nickname': nickname})
+                print(f"👤 用戶設置暱稱: {request.sid} -> {nickname}")
+
+        @self.socketio.on('send_message')
+        def handle_send_message(data):
+            """發送聊天訊息"""
+            if not self.chat_active:
+                emit('chat_error', {'message': '聊天室未開啟'})
+                return
+
+            user_id = request.sid
+            message_text = data.get('message', '').strip()
+
+            # 驗證訊息
+            if not message_text:
+                emit('chat_error', {'message': '訊息不能為空'})
+                return
+
+            if len(message_text) > 50:
+                emit('chat_error', {'message': '訊息不能超過 50 字'})
+                return
+
+            # 檢查用戶是否已經發送過訊息
+            for msg in self.chat_messages:
+                if msg['user_id'] == user_id:
+                    emit('chat_error', {'message': '您已經發送過訊息了'})
+                    return
+
+            # 創建訊息
+            username = self.user_nicknames.get(user_id, f'用戶{user_id[:8]}')
+            message_id = f"msg_{len(self.chat_messages)}_{int(time.time() * 1000)}"
+
+            new_message = {
+                'id': message_id,
+                'user_id': user_id,
+                'username': username,
+                'message': message_text,
+                'votes': 0,
+                'timestamp': datetime.now().isoformat()
+            }
+
+            self.chat_messages.append(new_message)
+
+            # 廣播新訊息
+            self.socketio.emit('new_message', new_message, room='controllers')
+
+            print(f"💬 新訊息: {username}: {message_text}")
+
+        @self.socketio.on('vote_message')
+        def handle_vote_message(data):
+            """投票給訊息"""
+            if not self.chat_active:
+                emit('chat_error', {'message': '聊天室未開啟'})
+                return
+
+            user_id = request.sid
+            message_id = data.get('message_id')
+
+            if not message_id:
+                emit('chat_error', {'message': '無效的訊息 ID'})
+                return
+
+            # 檢查用戶是否已經投過票
+            if user_id in self.chat_votes:
+                emit('chat_error', {'message': '您已經投過票了'})
+                return
+
+            # 找到訊息
+            message = None
+            for msg in self.chat_messages:
+                if msg['id'] == message_id:
+                    message = msg
+                    break
+
+            if not message:
+                emit('chat_error', {'message': '找不到該訊息'})
+                return
+
+            # 不能投給自己
+            if message['user_id'] == user_id:
+                emit('chat_error', {'message': '不能投給自己的訊息'})
+                return
+
+            # 記錄投票
+            self.chat_votes[user_id] = message_id
+            message['votes'] += 1
+
+            # 廣播投票更新
+            self.socketio.emit('vote_update', {
+                'message_id': message_id,
+                'votes': message['votes']
+            }, room='controllers')
+
+            emit('vote_success', {'message': '投票成功'})
+
+            print(f"🗳️ 投票: {user_id[:8]} -> {message['username']}")
+
+        @self.socketio.on('get_chat_status')
+        def handle_get_chat_status():
+            """獲取聊天室狀態"""
+            emit('chat_status', {
+                'active': self.chat_active,
+                'time_remaining': self.chat_time_remaining,
+                'messages': self.chat_messages,
+                'user_voted': request.sid in self.chat_votes
+            })
     
     def is_authorized_controller(self, client_id):
         """檢查是否為授權控制者"""
@@ -562,6 +687,140 @@ class WebRemoteControl:
             print("✅ 遠端控制權限已撤銷")
             return True
         return False
+
+    # ========== 聊天室管理方法 ==========
+
+    def start_chat_session(self):
+        """開始聊天會話（瞌睡時觸發）"""
+        if self.chat_active:
+            print("⚠️ 聊天室已經開啟")
+            return False
+
+        # 生成新的聊天會話 ID
+        self.chat_session_id = f"chat_{int(time.time() * 1000)}"
+        self.chat_active = True
+        self.chat_messages = []
+        self.chat_votes = {}
+        self.chat_time_remaining = 60
+        self.chat_timer_active = True
+
+        print(f"\n💬 聊天會話開始: {self.chat_session_id}")
+        print("⏱️ 倒數計時器: 60 秒")
+
+        # 廣播聊天室開啟事件
+        self.socketio.emit('chat_session_started', {
+            'session_id': self.chat_session_id,
+            'duration': 60,
+            'message': '主人睡著了！快來留言吧！'
+        }, room='controllers')
+
+        # 啟動倒數計時器
+        self.chat_timer_thread = threading.Thread(target=self.chat_timer_countdown, daemon=True)
+        self.chat_timer_thread.start()
+
+        return True
+
+    def chat_timer_countdown(self):
+        """聊天室倒數計時器"""
+        while self.chat_timer_active and self.chat_time_remaining > 0:
+            time.sleep(1)
+            self.chat_time_remaining -= 1
+
+            # 每秒廣播剩餘時間
+            self.socketio.emit('chat_timer_update', {
+                'time_remaining': self.chat_time_remaining
+            }, room='controllers')
+
+            # 倒數最後 10 秒時顯示警告
+            if self.chat_time_remaining == 10:
+                self.socketio.emit('chat_warning', {
+                    'message': '剩餘 10 秒！'
+                }, room='controllers')
+
+        # 時間到，結束聊天會話（但不撤銷控制權）
+        if self.chat_timer_active:
+            print("\n⏰ 聊天時間結束")
+            self.socketio.emit('chat_timer_ended', {
+                'message': '聊天時間結束！投票已截止'
+            }, room='controllers')
+
+    def end_chat_session(self):
+        """結束聊天會話（醒來時觸發）"""
+        if not self.chat_active:
+            return None
+
+        # 停止計時器
+        self.chat_timer_active = False
+
+        # 獲取最高票訊息
+        top_message = self.get_top_voted_message()
+
+        # 廣播聊天會話結束
+        self.socketio.emit('chat_session_ended', {
+            'top_message': top_message,
+            'message': '主人醒來了！'
+        }, room='controllers')
+
+        print(f"\n💬 聊天會話結束: {self.chat_session_id}")
+
+        if top_message:
+            print(f"🏆 最高票訊息: {top_message['username']}: {top_message['message']} ({top_message['votes']} 票)")
+
+            # 授予最高票者控制權
+            winner_user_id = top_message['user_id']
+            self.award_control_to_winner(winner_user_id, top_message)
+
+        # 清理聊天狀態
+        self.chat_active = False
+
+        return top_message
+
+    def get_top_voted_message(self):
+        """獲取最高票的訊息"""
+        if not self.chat_messages:
+            return None
+
+        # 按票數排序
+        sorted_messages = sorted(self.chat_messages, key=lambda x: x['votes'], reverse=True)
+
+        return sorted_messages[0] if sorted_messages else None
+
+    def award_control_to_winner(self, winner_user_id, top_message):
+        """授予最高票者控制權"""
+        # 檢查獲勝者是否仍然在線
+        if winner_user_id not in self.connected_clients:
+            print(f"⚠️ 獲勝者 {winner_user_id[:8]} 已離線，無法授予控制權")
+            self.socketio.emit('winner_offline', {
+                'message': '獲勝者已離線'
+            }, room='controllers')
+            return False
+
+        # 撤銷當前控制者的權限
+        if self.control_active and self.current_controller != winner_user_id:
+            self.revoke_remote_control(reason="最高票者獲得控制權")
+
+        # 授予控制權給獲勝者
+        self.control_active = True
+        self.current_controller = winner_user_id
+
+        print(f"🎮 控制權授予獲勝者: {winner_user_id[:8]} ({top_message['username']})")
+
+        # 通知獲勝者
+        self.socketio.emit('control_granted', {
+            'controller_id': winner_user_id,
+            'emergency': False,
+            'reason': 'winner',
+            'message': f'恭喜！您的留言獲得最高票 ({top_message["votes"]} 票)，已獲得控制權！'
+        }, room=winner_user_id)
+
+        # 廣播給所有人
+        self.socketio.emit('winner_announced', {
+            'winner': top_message['username'],
+            'message': top_message['message'],
+            'votes': top_message['votes']
+        }, room='controllers')
+
+        return True
 
     def start_audio_stream(self):
         """啟動音頻串流"""

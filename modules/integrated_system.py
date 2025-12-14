@@ -435,7 +435,22 @@ class IntegratedAntiDrowsinessSystem:
             self.event_recorder.record_shot_fired(shot_data)
 
         return True
-    
+
+    def play_winner_sound(self):
+        """播放獲勝者提示音"""
+        # 播放勝利音效（可以使用任何可用的音效）
+        if self.sounds:
+            # 優先使用特殊音效，如果沒有則使用水槍音效
+            winner_sounds = ['小黃鴨', '鴨子聲', 'water_gun']
+            for sound in winner_sounds:
+                if sound in self.sounds:
+                    try:
+                        self.sounds[sound].play()
+                        print(f"🎵 播放獲勝者提示音: {sound}")
+                        break
+                    except Exception as e:
+                        print(f"⚠️ 音效播放失敗: {e}")
+
     def handle_drowsiness_detected(self, drowsiness_result, current_frame):
         """處理瞌睡偵測"""
         # 檢查是否進入瞌睡狀態
@@ -458,6 +473,11 @@ class IntegratedAntiDrowsinessSystem:
                 if self.event_recorder:
                     self.event_recorder.record_drowsiness_start(drowsiness_result, current_frame)
 
+                # 啟動聊天會話
+                if self.web_control:
+                    self.web_control.start_chat_session()
+                    print("💬 聊天會話已啟動")
+
                 # 自動授予遠端控制權限（緊急模式）
                 if self.web_control:
                     self.web_control.grant_emergency_control(reason=f"偵測到瞌睡：{current_state}")
@@ -476,9 +496,17 @@ class IntegratedAntiDrowsinessSystem:
             drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
             print(f"\n😊 用戶已甦醒！瞌睡持續時間: {drowsy_duration:.1f} 秒")
 
-            # 撤銷遠端控制權限
+            # 結束聊天會話並獲取最高票留言
+            top_message = None
             if self.web_control:
-                self.web_control.revoke_remote_control(reason="用戶已甦醒")
+                top_message = self.web_control.end_chat_session()
+                if top_message:
+                    print(f"\n🏆 最高票留言: {top_message['username']}: {top_message['message']}")
+                    print(f"   票數: {top_message['votes']}")
+                    # 播放提示音
+                    self.play_winner_sound()
+                    # 在螢幕上顯示獲勝留言（可選）
+                    # 注意：最高票者已在 end_chat_session() 中自動獲得控制權
 
             # 記錄瞌睡結束事件
             if self.event_recorder:
