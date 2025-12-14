@@ -23,21 +23,12 @@
         }
         setTimeout(function () {
           if (!window.Toastify) {
-            console.warn('Local Toastify not found, loading CDN fallback');
             loadCSS(
               'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css'
             );
             loadScript(
-              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js',
-              function () {
-                console.log(
-                  'Toastify loaded from CDN fallback:',
-                  !!window.Toastify
-                );
-              }
+              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js'
             );
-          } else {
-            console.log('Toastify loaded locally');
           }
         }, 150);
       })();
@@ -244,6 +235,42 @@
         }
       }
 
+      // 顯示帶連結的 toast（訊息 + 可點擊連結）
+      function showLinkToast(message, url, type = 'info') {
+        const bg =
+          {
+            success: 'linear-gradient(90deg, #00b09b, #96c93d)',
+            error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
+            warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
+            info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+          }[type] || 'linear-gradient(90deg, #00d4ff, #0099cc)';
+
+        if (window.Toastify) {
+          Toastify({
+            node: (function () {
+              const n = document.createElement('div');
+              const t = document.createTextNode(message + ' ');
+              const a = document.createElement('a');
+              a.href = url;
+              a.target = '_blank';
+              a.style.color = '#fff';
+              a.style.textDecoration = 'underline';
+              a.textContent = '點此開啟';
+              n.appendChild(t);
+              n.appendChild(a);
+              return n;
+            })(),
+            duration: 10000,
+            gravity: 'top',
+            position: 'right',
+            close: true,
+            style: { background: bg },
+          }).showToast();
+        } else {
+          alert(message + '\n' + url);
+        }
+      }
+
       function formatTime(isoString) {
         const date = new Date(isoString);
         return date.toLocaleTimeString('zh-TW', {
@@ -421,15 +448,20 @@
       // 接收控制連結或監控連結
       socket.on('control_link', (data) => {
         if (data && data.url) {
-          showNotification('🏆 您獲得控制權，點擊以進入控制介面', 'success');
-          // 在狀態欄顯示連結
+          // 用 Toastify 顯示可點擊連結
+          showLinkToast(
+            '🏆 您獲得控制權，點擊以進入控制介面',
+            data.url,
+            'success'
+          );
+          // 在狀態欄也顯示連結
           chatStatus.innerHTML = `🏆 <a href="${data.url}" style="color:#00d4ff;">點此進入控制介面</a>`;
         }
       });
 
       socket.on('monitor_link', (data) => {
         if (data && data.url) {
-          showNotification('🔎 已發送監控連結給您（僅觀看）', 'info');
+          showLinkToast('🔎 已收到監控連結（僅觀看）', data.url, 'info');
           chatStatus.innerHTML = `🔎 <a href="${data.url}" style="color:#00d4ff;">點此進入監控畫面</a>`;
         }
       });

@@ -25,18 +25,11 @@
         }
         setTimeout(function () {
           if (!window.Toastify) {
-            console.warn('Local Toastify not found, loading CDN fallback');
             loadCSS(
               'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css'
             );
             loadScript(
-              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js',
-              function () {
-                console.log(
-                  'Toastify loaded from CDN fallback:',
-                  !!window.Toastify
-                );
-              }
+              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js'
             );
           }
         }, 150);
