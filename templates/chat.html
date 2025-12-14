@@ -5,11 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>互動聊天室 - 防瞌睡系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
-    />
-    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <link rel="stylesheet" href="/static/vendor/toastify/toastify.css" />
+    <script src="/static/vendor/toastify/toastify.js"></script>
+    <script>
+      (function () {
+        function loadCSS(url) {
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = url;
+          document.head.appendChild(l);
+        }
+        function loadScript(url, cb) {
+          var s = document.createElement('script');
+          s.src = url;
+          s.onload = cb || function () {};
+          document.head.appendChild(s);
+        }
+        setTimeout(function () {
+          if (!window.Toastify) {
+            console.warn('Local Toastify not found, loading CDN fallback');
+            loadCSS(
+              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css'
+            );
+            loadScript(
+              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js',
+              function () {
+                console.log(
+                  'Toastify loaded from CDN fallback:',
+                  !!window.Toastify
+                );
+              }
+            );
+          } else {
+            console.log('Toastify loaded locally');
+          }
+        }, 150);
+      })();
+    </script>
     <style>
       body {
         margin: 0;
@@ -114,15 +146,7 @@
       <div class="chat-panel">
         <div class="chat-header">
           <h3>💬 互動聊天室</h3>
-          <div
-            style="
-              margin-top: 8px;
-              display: flex;
-              gap: 8px;
-              justify-content: center;
-              align-items: center;
-            "
-          >
+          <div style="margin-top: 8px; display: flex; gap: 8px">
             <input
               id="nickname-input"
               placeholder="輸入暱稱（最多20字）"
