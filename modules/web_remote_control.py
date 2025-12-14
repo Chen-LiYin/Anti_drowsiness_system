@@ -174,22 +174,22 @@ class WebRemoteControl:
                                      'monitor_only': True
                                  })
 
-            @self.app.route('/monitor')
-            def monitor_page():
-                """獨立監控頁面（無搖桿）"""
-                auth_token = request.args.get('auth', '')
-                token = request.args.get('token', '')
+        @self.app.route('/monitor')
+        def monitor_page():
+            """獨立監控頁面（無搖桿）"""
+            auth_token = request.args.get('auth', '')
+            token = request.args.get('token', '')
 
-                token_valid_for_render = False
-                if token:
-                    info = self.one_time_tokens.get(token)
-                    if info and (not info.get('used')) and time.time() < info.get('expires_at', 0):
-                        token_valid_for_render = True
+            token_valid_for_render = False
+            if token:
+                info = self.one_time_tokens.get(token)
+                if info and (not info.get('used')) and time.time() < info.get('expires_at', 0):
+                    token_valid_for_render = True
 
-                if auth_token != self.config.CONTROL_PASSWORD and not token_valid_for_render:
-                    return "❌ 無效的訪問權限", 403
+            if auth_token != self.config.CONTROL_PASSWORD and not token_valid_for_render:
+                return "❌ 無效的訪問權限", 403
 
-                return render_template('monitor.html')
+            return render_template('monitor.html')
         
         @self.app.route('/video_feed')
         def video_feed():
