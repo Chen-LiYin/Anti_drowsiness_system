@@ -74,6 +74,10 @@ class IntegratedAntiDrowsinessSystem:
         self.drowsy_session_active = False
         self.drowsy_start_time = None
         self.notification_sent = False
+        self.drowsy_trigger_time = None  # 第一次檢測到瞌睡的時間
+        self.alert_trigger_time = None   # 第一次檢測到清醒的時間
+        self.drowsy_threshold = 30  # 瞌睡確認時間（秒）
+        self.alert_threshold = 30   # 清醒確認時間（秒）
         
         # 線程控制
         self.threads = []
@@ -452,74 +456,103 @@ class IntegratedAntiDrowsinessSystem:
                         print(f"⚠️ 音效播放失敗: {e}")
 
     def handle_drowsiness_detected(self, drowsiness_result, current_frame):
-        """處理瞌睡偵測"""
+        """處理瞌睡偵測（增加時間門檻，減少誤判）"""
         # 檢查是否進入瞌睡狀態
-        should_alert = drowsiness_result.get('should_alert', False)
         current_state = drowsiness_result.get('state', 'normal')
         alert_level = drowsiness_result.get('alert_level', 0)
 
-        print(f"[偵測] 狀態: {current_state}, 警報級別: {alert_level}, should_alert: {should_alert}")
+        # 瞌睡檢測：alert_level >= 2
+        if alert_level >= 2 or current_state == 'Drowsy':
+            # 重置清醒計時器
+            self.alert_trigger_time = None
 
-        # 修正：狀態名稱是 "Drowsy"（大寫），alert_level >= 3 代表瞌睡
-        if should_alert or current_state == 'Drowsy' or alert_level >= 3:
             if not self.drowsy_session_active:
-                # 開始新的瞌睡會話
-                print(f"\n🚨 檢測到瞌睡狀態: {current_state}")
-                self.drowsy_session_active = True
-                self.drowsy_start_time = time.time()
-                self.notification_sent = False
+                # 記錄第一次檢測到瞌睡的時間
+                if self.drowsy_trigger_time is None:
+                    self.drowsy_trigger_time = time.time()
+                    print(f"⚠️ 偵測到瞌睡跡象 (級別 {alert_level})，開始計時...")
 
-                # 記錄瞌睡開始事件
-                if self.event_recorder:
-                    self.event_recorder.record_drowsiness_start(drowsiness_result, current_frame)
+                # 檢查是否持續 30 秒
+                elapsed_time = time.time() - self.drowsy_trigger_time
+                if elapsed_time >= self.drowsy_threshold:
+                    # 確認瞌睡，開始新的瞌睡會話
+                    print(f"\n🚨 確認瞌睡狀態 (持續 {elapsed_time:.1f} 秒): {current_state}")
+                    self.drowsy_session_active = True
+                    self.drowsy_start_time = time.time()
+                    self.notification_sent = False
+                    self.drowsy_trigger_time = None  # 重置
 
-                # 啟動聊天會話
-                if self.web_control:
-                    self.web_control.start_chat_session()
-                    print("💬 聊天會話已啟動")
+                    # 記錄瞌睡開始事件
+                    if self.event_recorder:
+                        self.event_recorder.record_drowsiness_start(drowsiness_result, current_frame)
 
-                # 自動授予遠端控制權限（緊急模式）
-                if self.web_control:
-                    self.web_control.grant_emergency_control(reason=f"偵測到瞌睡：{current_state}")
+                    # 啟動聊天會話
+                    if self.web_control:
+                        self.web_control.start_chat_session()
+                        print("💬 聊天會話已啟動")
 
-            # 發送通知（如果尚未發送）
-            if not self.notification_sent and self.notification_system:
+                    # 自動授予遠端控制權限（緊急模式）
+                    if self.web_control:
+                        self.web_control.grant_emergency_control(reason=f"偵測到瞌睡：{current_state}")
+
+            # 如果已經在瞌睡會話中，發送通知（如果尚未發送）
+            if self.drowsy_session_active and not self.notification_sent and self.notification_system:
                 print("📲 嘗試發送 Telegram 通知...")
                 if self.notification_system.send_drowsiness_alert(drowsiness_result, current_frame):
                     self.notification_sent = True
                     print("✅ 瞌睡警報通知已發送")
                 else:
                     print("❌ 瞌睡警報通知發送失敗")
+        else:
+            # 沒有瞌睡跡象，重置瞌睡計時器
+            if self.drowsy_trigger_time is not None:
+                print("✓ 瞌睡跡象消失，重置計時器")
+            self.drowsy_trigger_time = None
 
-        elif current_state == 'Alert' and self.drowsy_session_active:
-            # 瞌睡狀態結束
-            drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
-            print(f"\n😊 用戶已甦醒！瞌睡持續時間: {drowsy_duration:.1f} 秒")
+        # 清醒狀態檢測（需要持續 30 秒才確認）
+        if current_state == 'Alert' and self.drowsy_session_active:
+            # 記錄第一次檢測到清醒的時間
+            if self.alert_trigger_time is None:
+                self.alert_trigger_time = time.time()
+                drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
+                print(f"✓ 偵測到清醒跡象（已瞌睡 {drowsy_duration:.1f} 秒），開始計時...")
 
-            # 結束聊天會話並獲取最高票留言
-            top_message = None
-            if self.web_control:
-                top_message = self.web_control.end_chat_session()
-                if top_message:
-                    print(f"\n🏆 最高票留言: {top_message['username']}: {top_message['message']}")
-                    print(f"   票數: {top_message['votes']}")
-                    # 播放提示音
-                    self.play_winner_sound()
-                    # 在螢幕上顯示獲勝留言（可選）
-                    # 注意：最高票者已在 end_chat_session() 中自動獲得控制權
+            # 檢查是否持續清醒 30 秒
+            alert_elapsed_time = time.time() - self.alert_trigger_time
+            if alert_elapsed_time >= self.alert_threshold:
+                # 確認清醒，結束瞌睡會話
+                drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
+                print(f"\n😊 確認用戶已甦醒 (持續清醒 {alert_elapsed_time:.1f} 秒)！瞌睡總時長: {drowsy_duration:.1f} 秒")
 
-            # 記錄瞌睡結束事件
-            if self.event_recorder:
-                self.event_recorder.record_drowsiness_end(current_frame)
+                # 結束聊天會話並獲取最高票留言
+                top_message = None
+                if self.web_control:
+                    top_message = self.web_control.end_chat_session()
+                    if top_message:
+                        print(f"\n🏆 最高票留言: {top_message['username']}: {top_message['message']}")
+                        print(f"   票數: {top_message['votes']}")
+                        # 播放提示音
+                        self.play_winner_sound()
+                        # 注意：最高票者已在 end_chat_session() 中自動獲得控制權
 
-            # 發送甦醒通知
-            if self.notification_system:
-                self.notification_system.send_wake_up_notification()
+                # 記錄瞌睡結束事件
+                if self.event_recorder:
+                    self.event_recorder.record_drowsiness_end(current_frame)
 
-            # 重置瞌睡狀態
-            self.drowsy_session_active = False
-            self.drowsy_start_time = None
-            self.notification_sent = False
+                # 發送甦醒通知
+                if self.notification_system:
+                    self.notification_system.send_wake_up_notification()
+
+                # 重置所有狀態
+                self.drowsy_session_active = False
+                self.drowsy_start_time = None
+                self.notification_sent = False
+                self.alert_trigger_time = None
+        else:
+            # 如果在瞌睡會話中但沒有清醒跡象，重置清醒計時器
+            if self.drowsy_session_active and self.alert_trigger_time is not None:
+                print("⚠️ 清醒跡象消失，重置清醒計時器")
+                self.alert_trigger_time = None
     
     def opencv_to_pygame(self, cv_image):
         """將 OpenCV 影像轉換為 pygame surface"""
