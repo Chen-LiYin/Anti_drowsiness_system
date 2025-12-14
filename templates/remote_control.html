@@ -14,7 +14,7 @@
 
       body {
         font-family: 'Microsoft YaHei', Arial, sans-serif;
-        background: #1a1a2e;
+        background: #0f1419;
         color: #fff;
         overflow: hidden;
         user-select: none;
@@ -24,6 +24,14 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        margin-right: 320px; /* 電腦版：為聊天室預留空間 */
+      }
+
+      @media (max-width: 768px) {
+        .main-container {
+          margin-right: 0; /* 手機版：不需要預留右側空間 */
+          margin-bottom: 40vh; /* 為底部聊天室預留空間 */
+        }
       }
 
       .header {
@@ -67,7 +75,7 @@
       .video-container {
         flex: 1;
         position: relative;
-        background: #000;
+        background: transparent;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -364,49 +372,29 @@
       .chat-sidebar {
         position: fixed;
         top: 0;
-        right: -350px;
-        width: 350px;
+        right: 0;
+        width: 320px;
         height: 100vh;
-        background: linear-gradient(180deg, #16213e 0%, #0f3460 100%);
-        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
-        z-index: 2000;
-        transition: right 0.3s ease;
+        background: rgba(22, 33, 62, 0.85);
+        backdrop-filter: blur(10px);
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+        z-index: 100;
         display: flex;
         flex-direction: column;
-      }
-
-      .chat-sidebar.open {
-        right: 0;
+        border-left: 2px solid rgba(0, 212, 255, 0.3);
       }
 
       .chat-header {
-        background: rgba(0, 212, 255, 0.1);
-        padding: 1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 2px solid #00d4ff;
+        background: rgba(0, 212, 255, 0.15);
+        padding: 0.8rem 1rem;
+        border-bottom: 2px solid rgba(0, 212, 255, 0.5);
       }
 
       .chat-header h3 {
         margin: 0;
         color: #00d4ff;
-        font-size: 1.2rem;
-      }
-
-      .chat-close-btn {
-        background: transparent;
-        border: none;
-        color: #fff;
-        font-size: 1.5rem;
-        cursor: pointer;
-        padding: 0.2rem 0.5rem;
-        transition: all 0.2s ease;
-      }
-
-      .chat-close-btn:hover {
-        color: #e74c3c;
-        transform: rotate(90deg);
+        font-size: 1.1rem;
+        text-align: center;
       }
 
       .chat-timer {
@@ -572,69 +560,21 @@
         border-top: 1px solid rgba(255, 255, 255, 0.1);
       }
 
-      .chat-toggle-btn {
-        position: fixed;
-        top: 50%;
-        right: 10px;
-        transform: translateY(-50%);
-        background: linear-gradient(45deg, #00d4ff, #0099cc);
-        border: none;
-        color: white;
-        padding: 1rem;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 1.5rem;
-        box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
-        z-index: 1999;
-        transition: all 0.3s ease;
-      }
-
-      .chat-toggle-btn:hover {
-        transform: translateY(-50%) scale(1.1);
-        box-shadow: 0 6px 20px rgba(0, 212, 255, 0.6);
-      }
-
-      .chat-badge {
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        background: #e74c3c;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.8rem;
-        animation: pulse 1s infinite;
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.1);
-        }
-      }
-
       /* RWD 響應式設計 */
       @media (max-width: 768px) {
         .chat-sidebar {
           width: 100%;
-          right: -100%;
-        }
-
-        .chat-toggle-btn {
-          right: 15px;
-          bottom: 15px;
+          height: 40vh;
           top: auto;
-          transform: none;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          border-left: none;
+          border-top: 2px solid rgba(0, 212, 255, 0.5);
         }
 
-        .chat-toggle-btn:hover {
-          transform: scale(1.1);
+        .chat-messages {
+          max-height: 20vh;
         }
       }
 
@@ -692,7 +632,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 150;
+            z-index: 50;
             pointer-events: auto;
           "
         ></canvas>
@@ -748,7 +688,6 @@
       <div class="chat-sidebar" id="chat-sidebar">
         <div class="chat-header">
           <h3>💬 互動聊天室</h3>
-          <button class="chat-close-btn" id="chat-close-btn">✕</button>
         </div>
 
         <div class="chat-timer" id="chat-timer" style="display: none">
@@ -761,16 +700,16 @@
         <div class="chat-messages" id="chat-messages">
           <div class="chat-welcome">
             <p>🎯 歡迎來到互動聊天室</p>
-            <p>主人睡著時會開啟聊天會話</p>
-            <p>您可以留言並投票給最佳留言</p>
-            <p>最高票者將獲得雲台控制權！</p>
+            <p>✍️ 您可以隨時留言（每人限一則，最多50字）</p>
+            <p>💤 當主人睡著時會開始 60 秒倒計時</p>
+            <p>🗳️ 大家可以投票給最佳留言</p>
+            <p>🏆 最高票者將獲得雲台控制權！</p>
           </div>
         </div>
 
         <div
           class="chat-input-container"
           id="chat-input-container"
-          style="display: none"
         >
           <input
             type="text"
@@ -782,14 +721,8 @@
           <button class="chat-send-btn" id="chat-send-btn">發送</button>
         </div>
 
-        <div class="chat-status" id="chat-status">等待聊天會話開始...</div>
+        <div class="chat-status" id="chat-status">💬 隨時可以留言！等待主人睡著開始投票...</div>
       </div>
-
-      <!-- 聊天室切換按鈕 -->
-      <button class="chat-toggle-btn" id="chat-toggle-btn">
-        💬
-        <span class="chat-badge" id="chat-badge" style="display: none">!</span>
-      </button>
     </div>
 
     <script>
@@ -1202,13 +1135,21 @@
       }
 
       function updatePositionDisplay() {
-          document.getElementById('position-display').textContent =
-              `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
+          const posDisplay = document.getElementById('position-display');
+          if (posDisplay) {
+              posDisplay.textContent = `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
+          }
       }
 
       function updateFireButton() {
           const button = document.getElementById('fire-button');
           const cooldown = document.getElementById('fire-cooldown');
+
+          // 檢查元素是否存在，避免錯誤
+          if (!button || !cooldown) {
+              console.warn('Fire button 或 cooldown 元素不存在');
+              return;
+          }
 
           if (fireReady) {
               button.disabled = false;
@@ -1221,6 +1162,11 @@
 
       function showNotification(message, type = 'info') {
           const notification = document.getElementById('notification');
+          if (!notification) {
+              console.warn('Notification 元素不存在');
+              return;
+          }
+
           notification.textContent = message;
           notification.className = `notification ${type}`;
 
@@ -1233,39 +1179,60 @@
           }, 3000);
       }
 
-      // 按鈕事件
-      document.getElementById('fire-button').addEventListener('click', () => {
-          if (!fireReady) return;
+      // 按鈕事件（加上 null 檢查）
+      const fireButton = document.getElementById('fire-button');
+      if (fireButton) {
+          fireButton.addEventListener('click', () => {
+              if (!fireReady) return;
 
-          const mode = 'single';  // 預設射擊模式
-          const sound = document.getElementById('sound-effect').value;
+              const mode = 'single';  // 預設射擊模式
+              const sound = document.getElementById('sound-effect').value;
 
-          socket.emit('fire_control', { mode, sound });
-      });
+              socket.emit('fire_control', { mode, sound });
+          });
+      }
 
-      document.getElementById('sound-effect').addEventListener('change', (e) => {
-          socket.emit('sound_change', { sound: e.target.value });
-      });
+      const soundEffect = document.getElementById('sound-effect');
+      if (soundEffect) {
+          soundEffect.addEventListener('change', (e) => {
+              socket.emit('sound_change', { sound: e.target.value });
+          });
+      }
 
-      document.getElementById('stop-all').addEventListener('click', () => {
-          socket.emit('control_end');
-          showNotification('🛑 已停止所有動作', 'info');
-      });
+      const stopAllBtn = document.getElementById('stop-all');
+      if (stopAllBtn) {
+          stopAllBtn.addEventListener('click', () => {
+              socket.emit('control_end');
+              showNotification('🛑 已停止所有動作', 'info');
+          });
+      }
 
-      document.getElementById('center-turret').addEventListener('click', () => {
-          socket.emit('pan_control', { angle: 90 });
-          socket.emit('tilt_control', { angle: 90 });
-          showNotification('🎯 雲台已回中心', 'info');
-      });
+      const centerTurretBtn = document.getElementById('center-turret');
+      if (centerTurretBtn) {
+          centerTurretBtn.addEventListener('click', () => {
+              socket.emit('pan_control', { angle: 90 });
+              socket.emit('tilt_control', { angle: 90 });
+              showNotification('🎯 雲台已回中心', 'info');
+          });
+      }
 
       // 視訊串流錯誤處理
-      document.getElementById('video-stream').addEventListener('error', () => {
-          document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
-      });
+      const videoStream = document.getElementById('video-stream');
+      const streamInfo = document.getElementById('stream-info');
 
-      document.getElementById('video-stream').addEventListener('load', () => {
-          document.getElementById('stream-info').textContent = '即時串流中';
-      });
+      if (videoStream) {
+          videoStream.addEventListener('error', () => {
+              if (streamInfo) {
+                  streamInfo.textContent = '視訊串流暫時不可用';
+              }
+          });
+
+          videoStream.addEventListener('load', () => {
+              if (streamInfo) {
+                  streamInfo.textContent = '即時串流中';
+              }
+          });
+      }
 
       // ============ 音頻串流功能 ============
       let audioContext = null;
@@ -1364,44 +1331,15 @@
       let userMessage = null;
 
       const chatSidebar = document.getElementById('chat-sidebar');
-      const chatToggleBtn = document.getElementById('chat-toggle-btn');
-      const chatCloseBtn = document.getElementById('chat-close-btn');
       const chatMessages = document.getElementById('chat-messages');
       const chatInput = document.getElementById('chat-input');
       const chatSendBtn = document.getElementById('chat-send-btn');
       const chatStatus = document.getElementById('chat-status');
       const chatTimer = document.getElementById('chat-timer');
       const timerSeconds = document.getElementById('timer-seconds');
-      const chatBadge = document.getElementById('chat-badge');
       const chatInputContainer = document.getElementById('chat-input-container');
 
-      // 除錯：確認元素是否存在
-      console.log('聊天室元素檢查:');
-      console.log('chatSidebar:', chatSidebar);
-      console.log('chatToggleBtn:', chatToggleBtn);
-      console.log('chatCloseBtn:', chatCloseBtn);
-
-      // 切換聊天室
-      if (chatToggleBtn && chatSidebar) {
-          chatToggleBtn.addEventListener('click', () => {
-              console.log('聊天室切換按鈕被點擊');
-              console.log('切換前 classList:', chatSidebar.classList);
-              chatSidebar.classList.toggle('open');
-              console.log('切換後 classList:', chatSidebar.classList);
-              if (chatBadge) {
-                  chatBadge.style.display = 'none';
-              }
-          });
-      } else {
-          console.error('聊天室元素未找到！chatToggleBtn:', chatToggleBtn, 'chatSidebar:', chatSidebar);
-      }
-
-      if (chatCloseBtn && chatSidebar) {
-          chatCloseBtn.addEventListener('click', () => {
-              console.log('聊天室關閉按鈕被點擊');
-              chatSidebar.classList.remove('open');
-          });
-      }
+      console.log('聊天室初始化完成');
 
       // 發送訊息
       function sendMessage() {
@@ -1476,17 +1414,14 @@
           console.log('💬 聊天會話開始:', data);
           chatActive = true;
           userVoted = false;
-          userMessage = null;
 
-          chatStatus.textContent = '🎯 聊天會話進行中 - 快來留言吧！';
+          chatStatus.textContent = '🎯 投票倒計時開始 - 60 秒內快來投票！';
           chatTimer.style.display = 'block';
-          chatInputContainer.style.display = 'flex';
-          chatBadge.style.display = 'block';
 
           showNotification(data.message, 'success');
 
-          // 自動打開聊天室
-          chatSidebar.classList.add('open');
+          // 重新渲染所有訊息，顯示投票按鈕
+          socket.emit('get_chat_status');
       });
 
       // 倒數計時更新
@@ -1507,8 +1442,10 @@
       // 倒數計時結束
       socket.on('chat_timer_ended', (data) => {
           showNotification(data.message, 'info');
-          chatInputContainer.style.display = 'none';
-          chatStatus.textContent = '⏰ 聊天時間結束 - 投票已截止';
+          chatStatus.textContent = '⏰ 投票已截止 - 等待主人醒來結算';
+
+          // 重新渲染訊息，移除投票按鈕
+          socket.emit('get_chat_status');
       });
 
       // 新訊息
@@ -1556,16 +1493,30 @@
           console.log('💬 聊天會話結束:', data);
           chatActive = false;
           chatTimer.style.display = 'none';
-          chatInputContainer.style.display = 'none';
+          userVoted = false;
 
           if (data.top_message) {
               showNotification(`🏆 獲勝留言: ${data.top_message.message}`, 'success');
-              chatStatus.textContent = `🏆 獲勝者: ${data.top_message.username} (${data.top_message.votes} 票)`;
+              chatStatus.textContent = `🏆 獲勝者: ${data.top_message.username} (${data.top_message.votes} 票) - 可以繼續留言等待下一輪`;
           } else {
-              chatStatus.textContent = '聊天會話已結束';
+              chatStatus.textContent = '💬 主人醒來了！可以繼續留言等待下一輪';
           }
 
           showNotification(data.message, 'info');
+
+          // 清空聊天訊息，準備下一輪
+          setTimeout(() => {
+              chatMessages.innerHTML = `
+                  <div class="chat-welcome">
+                      <p>🎯 歡迎來到互動聊天室</p>
+                      <p>✍️ 您可以隨時留言（每人限一則，最多50字）</p>
+                      <p>💤 當主人睡著時會開始 60 秒倒計時</p>
+                      <p>🗳️ 大家可以投票給最佳留言</p>
+                      <p>🏆 最高票者將獲得雲台控制權！</p>
+                  </div>
+              `;
+              chatStatus.textContent = '💬 隨時可以留言！等待主人睡著開始投票...';
+          }, 5000);
       });
 
       // 獲勝者宣布

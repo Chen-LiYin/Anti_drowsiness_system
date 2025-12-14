@@ -433,11 +433,7 @@ class WebRemoteControl:
 
         @self.socketio.on('send_message')
         def handle_send_message(data):
-            """發送聊天訊息"""
-            if not self.chat_active:
-                emit('chat_error', {'message': '聊天室未開啟'})
-                return
-
+            """發送聊天訊息（隨時可用）"""
             user_id = request.sid
             message_text = data.get('message', '').strip()
 
@@ -474,7 +470,8 @@ class WebRemoteControl:
             # 廣播新訊息
             self.socketio.emit('new_message', new_message, room='controllers')
 
-            print(f"💬 新訊息: {username}: {message_text}")
+            status_text = "（等待主人睡著開始投票）" if not self.chat_active else "（投票進行中）"
+            print(f"💬 新訊息 {status_text}: {username}: {message_text}")
 
         @self.socketio.on('vote_message')
         def handle_vote_message(data):
@@ -770,8 +767,17 @@ class WebRemoteControl:
             winner_user_id = top_message['user_id']
             self.award_control_to_winner(winner_user_id, top_message)
 
-        # 清理聊天狀態
+        # 清理聊天狀態，準備下一輪
         self.chat_active = False
+        # 延遲5秒後清空訊息列表，讓前端有時間顯示獲勝者
+        def clear_chat_data():
+            time.sleep(5)
+            self.chat_messages = []
+            self.chat_votes = {}
+            self.chat_session_id = None
+            print("✨ 聊天室已清空，準備下一輪")
+
+        threading.Thread(target=clear_chat_data, daemon=True).start()
 
         return top_message
 
