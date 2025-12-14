@@ -620,6 +620,7 @@ class WebRemoteControl:
             'expires_at': time.time() + ttl,
             'used': False
         }
+        print(f"[TOKEN] generated token={token} ttl={ttl}s")
         return token
 
     def validate_and_use_token(self, token):
@@ -860,21 +861,28 @@ class WebRemoteControl:
 
         # 獲取最高票訊息
         top_message = self.get_top_voted_message()
-
-        # 廣播聊天會話結束
-        self.socketio.emit('chat_session_ended', {
-            'top_message': top_message,
-            'message': '主人醒來了！'
-        }, room='controllers')
-
         print(f"\n💬 聊天會話結束: {self.chat_session_id}")
 
         if top_message:
             print(f"🏆 最高票訊息: {top_message['username']}: {top_message['message']} ({top_message['votes']} 票)")
 
-            # 授予最高票者控制權
+            # 授予最高票者控制權（先處理授權/產生 token/發送 control_link）
             winner_user_id = top_message['user_id']
-            self.award_control_to_winner(winner_user_id, top_message)
+            control_url = self.award_control_to_winner(winner_user_id, top_message)
+
+            # 廣播聊天會話結束，並在 payload 中提示是否有 control_url（不包含 token 本文）
+            self.socketio.emit('chat_session_ended', {
+                'top_message': top_message,
+                'message': '主人醒來了！',
+                'control_url': control_url
+            }, room='controllers')
+        else:
+            # 沒有最高票訊息，直接廣播結束
+            self.socketio.emit('chat_session_ended', {
+                'top_message': None,
+                'message': '主人醒來了！',
+                'control_url': None
+            }, room='controllers')
 
         # 清理聊天狀態，準備下一輪
         self.chat_active = False
@@ -903,6 +911,7 @@ class WebRemoteControl:
     def award_control_to_winner(self, winner_user_id, top_message):
         """授予最高票者控制權"""
         # 若獲勝者不在線，我們會產生一次性控制連結並試著透過通知系統發送
+        control_url = None
         if winner_user_id not in self.connected_clients:
             print(f"⚠️ 獲勝者 {winner_user_id[:8]} 已離線，將產生一次性控制連結並嘗試發送")
             self.socketio.emit('winner_offline', {
@@ -933,7 +942,7 @@ class WebRemoteControl:
             except Exception as e:
                 print(f"⚠️ 發送監控連結失敗: {e}")
 
-            return True
+            return control_url
 
         # 撤銷當前控制者的權限
         if self.control_active and self.current_controller != winner_user_id:
@@ -990,7 +999,21 @@ class WebRemoteControl:
             'votes': top_message['votes']
         }, room='controllers')
 
-        return True
+        # 發送 monitor_link 給其他在線用戶，並 control_link 給獲勝者
+        try:
+            local_ip = self.get_local_ip()
+            monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor_only?auth={self.config.CONTROL_PASSWORD}"
+            for cid in list(self.connected_clients):
+                if cid != winner_user_id:
+                    self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
+
+            if control_url:
+                self.socketio.emit('control_link', {'url': control_url}, room=winner_user_id)
+
+        except Exception as e:
+            print(f"⚠️ 發送連結失敗: {e}")
+
+        return control_url
 
     def start_audio_stream(self):
         """啟動音頻串流"""

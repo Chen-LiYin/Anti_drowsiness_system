@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>互動聊天室 - 防瞌睡系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <style>
       body {
         margin: 0;
@@ -190,10 +195,29 @@
       const chatStatus = document.getElementById('chat-status');
 
       function showNotification(msg, type = 'info') {
-        // minimal notification: use alert fallback
-        try {
-          console.log('[NOTIF]', type, msg);
-        } catch (e) {}
+        const colors = {
+          success: 'linear-gradient(90deg, #00b09b, #96c93d)',
+          error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
+          warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
+          info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+        };
+        const bg = colors[type] || colors.info;
+        if (window.Toastify) {
+          Toastify({
+            text: msg,
+            duration: 4000,
+            gravity: 'top',
+            position: 'right',
+            close: true,
+            style: { background: bg },
+          }).showToast();
+        } else {
+          try {
+            console.log('[NOTIF]', type, msg);
+          } catch (e) {}
+          // fallback
+          alert(msg);
+        }
       }
 
       function formatTime(isoString) {
@@ -227,7 +251,7 @@
       function updateChatMessages(messages) {
         chatMessages.innerHTML = '';
         messages.forEach((msg) => {
-          const canVote = !userVoted && chatActive;
+          const canVote = !userVoted && chatActive && msg.user_id !== socket.id;
           chatMessages.appendChild(renderMessage(msg, canVote));
         });
         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -297,7 +321,8 @@
         }
       });
       socket.on('new_message', (message) => {
-        const canVote = !userVoted && chatActive;
+        const canVote =
+          !userVoted && chatActive && message.user_id !== socket.id;
         chatMessages.appendChild(renderMessage(message, canVote));
         chatMessages.scrollTop = chatMessages.scrollHeight;
         if (message.user_id !== socket.id)
@@ -352,6 +377,11 @@
         if (d.top_message) {
           showNotification(`🏆 獲勝留言: ${d.top_message.message}`, 'success');
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
+
+          // 如果 payload 包含 control_url 且當前使用者為獲勝者，顯示控制連結
+          if (d.control_url && d.top_message.user_id === socket.id) {
+            chatStatus.innerHTML = `🏆 你獲勝！<a href="${d.control_url}" style="color:#00d4ff;">點此進入控制介面</a>`;
+          }
         } else {
           chatStatus.textContent = '💬 主人醒來了！';
         }
