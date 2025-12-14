@@ -141,6 +141,11 @@ class WebRemoteControl:
                                      'sounds': self.config.AVAILABLE_SOUNDS,
                                      'CONTROL_PASSWORD': self.config.CONTROL_PASSWORD
                                  })
+
+        @self.app.route('/chat')
+        def chat_page():
+            """獨立聊天室頁面"""
+            return render_template('chat.html')
         
         @self.app.route('/video_feed')
         def video_feed():
@@ -450,6 +455,8 @@ class WebRemoteControl:
             user_id = request.sid
             message_text = data.get('message', '').strip()
 
+            print(f"[CHAT] recv send_message from {user_id}: '{message_text}' (chat_active={self.chat_active})")
+
             # 驗證訊息
             if not message_text:
                 emit('chat_error', {'message': '訊息不能為空'})
@@ -481,10 +488,12 @@ class WebRemoteControl:
             self.chat_messages.append(new_message)
 
             # 廣播新訊息
+            print(f"[CHAT] broadcasting new_message id={message_id} user={username}")
             self.socketio.emit('new_message', new_message, room='controllers')
 
             status_text = "（等待主人睡著開始投票）" if not self.chat_active else "（投票進行中）"
             print(f"💬 新訊息 {status_text}: {username}: {message_text}")
+
 
         @self.socketio.on('vote_message')
         def handle_vote_message(data):
@@ -495,6 +504,8 @@ class WebRemoteControl:
 
             user_id = request.sid
             message_id = data.get('message_id')
+
+            print(f"[CHAT] recv vote_message from {user_id}: message_id={message_id}")
 
             if not message_id:
                 emit('chat_error', {'message': '無效的訊息 ID'})
