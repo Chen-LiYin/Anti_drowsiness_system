@@ -107,7 +107,51 @@
   <body>
     <div class="chat-sidebar">
       <div class="chat-panel">
-        <div class="chat-header"><h3>💬 互動聊天室</h3></div>
+        <div class="chat-header">
+          <h3>💬 互動聊天室</h3>
+          <div
+            style="
+              margin-top: 8px;
+              display: flex;
+              gap: 8px;
+              justify-content: center;
+              align-items: center;
+            "
+          >
+            <input
+              id="nickname-input"
+              placeholder="輸入暱稱（最多20字）"
+              style="
+                padding: 6px 8px;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                width: 140px;
+                background: transparent;
+                color: #fff;
+              "
+              maxlength="20"
+            />
+            <button
+              id="set-nickname-btn"
+              style="
+                padding: 6px 10px;
+                border-radius: 12px;
+                border: none;
+                background: #00d4ff;
+                color: #000;
+                cursor: pointer;
+              "
+            >
+              設定名稱
+            </button>
+          </div>
+          <div
+            id="timer-display"
+            style="margin-top: 8px; color: #f39c12; display: none"
+          >
+            ⏱️ <span id="timer-seconds">60</span>秒
+          </div>
+        </div>
         <div class="chat-messages" id="chat-messages">
           <div class="chat-welcome">
             <p>🎯 歡迎來到互動聊天室</p>
@@ -121,8 +165,11 @@
             class="chat-input"
             maxlength="50"
             placeholder="輸入您的留言（最多50字）..."
+            disabled
           />
-          <button id="chat-send-btn" class="chat-send-btn">發送</button>
+          <button id="chat-send-btn" class="chat-send-btn" disabled>
+            發送
+          </button>
         </div>
         <div class="chat-status" id="chat-status">
           💬 隨時可以留言！等待主人觸發投票...
@@ -135,6 +182,7 @@
 
       let chatActive = false;
       let userVoted = false;
+      let myNickname = null;
 
       const chatMessages = document.getElementById('chat-messages');
       const chatInput = document.getElementById('chat-input');
@@ -191,6 +239,10 @@
           showNotification('請輸入訊息', 'warning');
           return;
         }
+        if (!myNickname) {
+          showNotification('請先設定暱稱', 'warning');
+          return;
+        }
         if (message.length > 50) {
           showNotification('訊息不能超過50字', 'warning');
           return;
@@ -211,6 +263,29 @@
       // Socket events
       socket.on('connect', () => {
         socket.emit('get_chat_status');
+      });
+
+      // 設定暱稱
+      const nicknameInput = document.getElementById('nickname-input');
+      const setNicknameBtn = document.getElementById('set-nickname-btn');
+      setNicknameBtn.addEventListener('click', () => {
+        const nick = nicknameInput.value.trim();
+        if (!nick) {
+          showNotification('暱稱不能為空', 'warning');
+          return;
+        }
+        socket.emit('set_nickname', { nickname: nick });
+      });
+
+      socket.on('nickname_set', (data) => {
+        myNickname = data.nickname;
+        showNotification(`已設定暱稱：${myNickname}`, 'success');
+        // 啟用輸入
+        chatInput.disabled = false;
+        document.getElementById('chat-send-btn').disabled = false;
+        // 將暱稱輸入鎖定
+        nicknameInput.disabled = true;
+        setNicknameBtn.disabled = true;
       });
 
       socket.on('chat_status', (data) => {
@@ -252,11 +327,19 @@
         chatActive = true;
         userVoted = false;
         chatStatus.textContent = '🎯 投票倒計時開始 - 60 秒內快來投票！';
+        // 顯示倒數計時
+        const timerEl = document.getElementById('timer-display');
+        const timerSeconds = document.getElementById('timer-seconds');
+        if (timerEl && timerSeconds) {
+          timerEl.style.display = 'block';
+          timerSeconds.textContent = d.duration || 60;
+        }
         showNotification(d.message, 'success');
         socket.emit('get_chat_status');
       });
       socket.on('chat_timer_update', (d) => {
-        /* optional */
+        const timerSeconds = document.getElementById('timer-seconds');
+        if (timerSeconds) timerSeconds.textContent = d.time_remaining;
       });
       socket.on('chat_timer_ended', (d) => {
         showNotification(d.message, 'info');
@@ -276,6 +359,21 @@
           chatMessages.innerHTML = `<div class=\"chat-welcome\"><p>🎯 歡迎來到互動聊天室</p><p>✍️ 您可以隨時留言（每人限一則，最多50字）</p></div>`;
           chatStatus.textContent = '💬 隨時可以留言！';
         }, 5000);
+      });
+      // 接收控制連結或監控連結
+      socket.on('control_link', (data) => {
+        if (data && data.url) {
+          showNotification('🏆 您獲得控制權，點擊以進入控制介面', 'success');
+          // 在狀態欄顯示連結
+          chatStatus.innerHTML = `🏆 <a href="${data.url}" style="color:#00d4ff;">點此進入控制介面</a>`;
+        }
+      });
+
+      socket.on('monitor_link', (data) => {
+        if (data && data.url) {
+          showNotification('🔎 已發送監控連結給您（僅觀看）', 'info');
+          chatStatus.innerHTML = `🔎 <a href="${data.url}" style="color:#00d4ff;">點此進入監控畫面</a>`;
+        }
       });
     </script>
   </body>

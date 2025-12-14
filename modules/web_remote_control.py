@@ -139,13 +139,40 @@ class WebRemoteControl:
                                      'tilt_min': self.tilt_min,
                                      'tilt_max': self.tilt_max,
                                      'sounds': self.config.AVAILABLE_SOUNDS,
-                                     'CONTROL_PASSWORD': self.config.CONTROL_PASSWORD
+                                     'CONTROL_PASSWORD': self.config.CONTROL_PASSWORD,
+                                     'monitor_only': False
                                  })
 
         @self.app.route('/chat')
         def chat_page():
             """獨立聊天室頁面"""
             return render_template('chat.html')
+
+        @self.app.route('/monitor_only')
+        def monitor_only():
+            """只看監控畫面（無搖桿/射擊）"""
+            auth_token = request.args.get('auth', '')
+            token = request.args.get('token', '')
+
+            token_valid_for_render = False
+            if token:
+                info = self.one_time_tokens.get(token)
+                if info and (not info.get('used')) and time.time() < info.get('expires_at', 0):
+                    token_valid_for_render = True
+
+            if auth_token != self.config.CONTROL_PASSWORD and not token_valid_for_render:
+                return "❌ 無效的訪問權限", 403
+
+            return render_template('remote_control.html',
+                                 config={
+                                     'pan_min': self.pan_min,
+                                     'pan_max': self.pan_max,
+                                     'tilt_min': self.tilt_min,
+                                     'tilt_max': self.tilt_max,
+                                     'sounds': self.config.AVAILABLE_SOUNDS,
+                                     'CONTROL_PASSWORD': self.config.CONTROL_PASSWORD,
+                                     'monitor_only': True
+                                 })
         
         @self.app.route('/video_feed')
         def video_feed():
@@ -896,6 +923,16 @@ class WebRemoteControl:
                 except Exception as e:
                     print(f"⚠️ 發送控制連結失敗: {e}")
 
+            # 發送監控連結給其他在線用戶（無搖桿）
+            try:
+                monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor_only?auth={self.config.CONTROL_PASSWORD}"
+                for cid in list(self.connected_clients):
+                    # 不對獲勝者發送監控連結（因為獲勝者離線）
+                    self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
+                print("✅ 已向在線用戶發送監控連結")
+            except Exception as e:
+                print(f"⚠️ 發送監控連結失敗: {e}")
+
             return True
 
         # 撤銷當前控制者的權限
@@ -926,6 +963,25 @@ class WebRemoteControl:
                 self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
             except Exception as e:
                 print(f"⚠️ 發送獲勝者控制連結失敗: {e}")
+
+        # 發送監控連結給其他在線用戶（無搖桿），並發送控制連結給獲勝者
+        try:
+            local_ip = self.get_local_ip()
+            monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor_only?auth={self.config.CONTROL_PASSWORD}"
+
+            # 先發 monitor_link 給所有（稍後單獨發 control_link 給獲勝者覆蓋）
+            for cid in list(self.connected_clients):
+                if cid != winner_user_id:
+                    self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
+
+            # 產生一個控制用的一次性連結並發送給獲勝者（透過 socket event）
+            token = self.generate_one_time_token()
+            control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
+            self.socketio.emit('control_link', {'url': control_url}, room=winner_user_id)
+
+            print("✅ 已發送 control_link 給獲勝者，monitor_link 給其他在線用戶")
+        except Exception as e:
+            print(f"⚠️ 發送連結失敗: {e}")
 
         # 廣播給所有人
         self.socketio.emit('winner_announced', {

@@ -458,6 +458,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       const ONE_TIME_TOKEN = urlParams.get('token');
       const socket = io();
+      const monitorOnly = {{ 'true' if config.monitor_only else 'false' }};
 
       // 控制狀態（直接啟用）
       let controlActive = true;
@@ -768,10 +769,16 @@
           socket.emit('fire_control', { mode, sound });
       }
 
-      // 頁面載入後初始化
-      window.addEventListener('load', () => {
-          initVirtualControls();
-      });
+        // 頁面載入後初始化
+        window.addEventListener('load', () => {
+          // 如果頁面是 monitor-only，隱藏虛擬搖桿並不初始化控制
+          const canvas = document.getElementById('joystick-canvas');
+          if (monitorOnly) {
+            if (canvas) canvas.style.display = 'none';
+          } else {
+            initVirtualControls();
+          }
+        });
 
       // 窗口大小改變時重新調整 Canvas
       window.addEventListener('resize', () => {
@@ -802,16 +809,16 @@
           socket.emit('control_start');
       });
 
-      socket.on('disconnect', () => {
-          updateConnectionStatus('disconnected', '連接斷開');
-      });
-
-      socket.on('control_granted', (data) => {
-          // 控制權已授予（靜默處理，無需通知）
-          controlActive = true;
-      });
-
-      socket.on('control_revoked', (data) => {
+        socket.on('connect', () => {
+          updateConnectionStatus('control-active', '控制中');
+          // 如果 URL 含一次性 token，先嘗試以 token 認領控制權
+          if (ONE_TIME_TOKEN) {
+            socket.emit('claim_token', { token: ONE_TIME_TOKEN });
+          } else if (!monitorOnly) {
+            // 否則（且非 monitor-only）自動請求控制權限
+            socket.emit('control_start');
+          }
+        });
           // 控制權被撤銷，自動重新請求
           controlActive = false;
           socket.emit('control_start');
@@ -856,6 +863,19 @@
           fireReady = data.fire_ready;
           updateFireButton();
       });
+
+        // 接收監控或控制連結（可在頁面顯示或處理）
+        socket.on('monitor_link', (data) => {
+          if (data && data.url) {
+            showNotification('🔎 您已收到監控連結（僅觀看）', 'info');
+          }
+        });
+
+        socket.on('control_link', (data) => {
+          if (data && data.url) {
+            showNotification('🏆 您已收到控制連結', 'success');
+          }
+        });
 
       // UI 更新函數
       function updateConnectionStatus(status, text) {
