@@ -14,7 +14,7 @@
 
       body {
         font-family: 'Microsoft YaHei', Arial, sans-serif;
-        background: #0f1419;
+        background: #1a1a2e;
         color: #fff;
         overflow: hidden;
         user-select: none;
@@ -24,14 +24,6 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
-        margin-right: 320px; /* 電腦版：為聊天室預留空間 */
-      }
-
-      @media (max-width: 768px) {
-        .main-container {
-          margin-right: 0; /* 手機版：不需要預留右側空間 */
-          margin-bottom: 40vh; /* 為底部聊天室預留空間 */
-        }
       }
 
       .header {
@@ -75,7 +67,7 @@
       .video-container {
         flex: 1;
         position: relative;
-        background: transparent;
+        background: #000;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -367,230 +359,6 @@
       .notification.info {
         border-color: #00d4ff;
       }
-
-      /* ========== 聊天室樣式 ========== */
-      .chat-sidebar {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: 320px;
-        height: 100vh;
-        background: rgba(22, 33, 62, 0.85);
-        backdrop-filter: blur(10px);
-        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
-        z-index: 100;
-        display: flex;
-        flex-direction: column;
-        border-left: 2px solid rgba(0, 212, 255, 0.3);
-      }
-
-      .chat-header {
-        background: rgba(0, 212, 255, 0.15);
-        padding: 0.8rem 1rem;
-        border-bottom: 2px solid rgba(0, 212, 255, 0.5);
-      }
-
-      .chat-header h3 {
-        margin: 0;
-        color: #00d4ff;
-        font-size: 1.1rem;
-        text-align: center;
-      }
-
-      .chat-timer {
-        background: rgba(243, 156, 18, 0.2);
-        padding: 1rem;
-        text-align: center;
-        border-bottom: 1px solid rgba(243, 156, 18, 0.5);
-      }
-
-      .timer-display {
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: #f39c12;
-      }
-
-      .timer-hint {
-        font-size: 0.8rem;
-        color: #ccc;
-        margin-top: 0.3rem;
-      }
-
-      .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 1rem;
-      }
-
-      .chat-welcome {
-        text-align: center;
-        padding: 2rem 1rem;
-        color: #aaa;
-      }
-
-      .chat-welcome p {
-        margin: 0.5rem 0;
-        font-size: 0.9rem;
-      }
-
-      .chat-message {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        padding: 0.8rem;
-        margin-bottom: 0.8rem;
-        border-left: 3px solid #00d4ff;
-        transition: all 0.2s ease;
-      }
-
-      .chat-message:hover {
-        background: rgba(255, 255, 255, 0.1);
-      }
-
-      .chat-message.voted {
-        border-left-color: #27ae60;
-      }
-
-      .message-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-      }
-
-      .message-username {
-        font-weight: bold;
-        color: #00d4ff;
-        font-size: 0.9rem;
-      }
-
-      .message-votes {
-        background: rgba(231, 76, 60, 0.2);
-        color: #e74c3c;
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: bold;
-      }
-
-      .message-text {
-        color: #fff;
-        font-size: 0.95rem;
-        margin-bottom: 0.5rem;
-        word-wrap: break-word;
-      }
-
-      .message-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .message-time {
-        font-size: 0.75rem;
-        color: #888;
-      }
-
-      .vote-btn {
-        background: linear-gradient(45deg, #27ae60, #2ecc71);
-        border: none;
-        color: white;
-        padding: 0.3rem 0.8rem;
-        border-radius: 15px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        transition: all 0.2s ease;
-      }
-
-      .vote-btn:hover {
-        transform: scale(1.05);
-        box-shadow: 0 2px 8px rgba(46, 204, 113, 0.4);
-      }
-
-      .vote-btn:disabled {
-        background: #555;
-        cursor: not-allowed;
-        transform: none;
-      }
-
-      .chat-input-container {
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 1rem;
-        display: flex;
-        gap: 0.5rem;
-      }
-
-      .chat-input {
-        flex: 1;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
-        padding: 0.6rem 1rem;
-        color: #fff;
-        font-size: 0.9rem;
-      }
-
-      .chat-input:focus {
-        outline: none;
-        border-color: #00d4ff;
-        box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
-      }
-
-      .chat-send-btn {
-        background: linear-gradient(45deg, #00d4ff, #0099cc);
-        border: none;
-        color: white;
-        padding: 0.6rem 1.2rem;
-        border-radius: 20px;
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: bold;
-        transition: all 0.2s ease;
-      }
-
-      .chat-send-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
-      }
-
-      .chat-status {
-        padding: 0.8rem;
-        text-align: center;
-        font-size: 0.85rem;
-        color: #aaa;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      /* RWD 響應式設計 */
-      @media (max-width: 768px) {
-        .chat-sidebar {
-          width: 100%;
-          height: 40vh;
-          top: auto;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          border-left: none;
-          border-top: 2px solid rgba(0, 212, 255, 0.5);
-        }
-
-        .chat-messages {
-          max-height: 20vh;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .chat-message {
-          padding: 0.6rem;
-        }
-
-        .message-text {
-          font-size: 0.85rem;
-        }
-
-        .chat-input {
-          font-size: 0.85rem;
-        }
-      }
     </style>
   </head>
   <body>
@@ -632,7 +400,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 50;
+            z-index: 150;
             pointer-events: auto;
           "
         ></canvas>
@@ -683,8 +451,6 @@
 
       <!-- 通知區域 -->
       <div class="notification" id="notification"></div>
-
-      <!-- 聊天室已移除；如需獨立聊天室請使用 templates/chat.html -->
     </div>
 
     <script>
@@ -1032,13 +798,8 @@
       // SocketIO 事件處理
       socket.on('connect', () => {
           updateConnectionStatus('control-active', '控制中');
-          // 如果 URL 含一次性 token，先嘗試以 token 認領控制權
-          if (ONE_TIME_TOKEN) {
-            socket.emit('claim_token', { token: ONE_TIME_TOKEN });
-          } else {
-            // 否則自動請求控制權限
-            socket.emit('control_start');
-          }
+          // 自動請求控制權限
+          socket.emit('control_start');
       });
 
       socket.on('disconnect', () => {
@@ -1104,21 +865,13 @@
       }
 
       function updatePositionDisplay() {
-          const posDisplay = document.getElementById('position-display');
-          if (posDisplay) {
-              posDisplay.textContent = `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
-          }
+          document.getElementById('position-display').textContent =
+              `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
       }
 
       function updateFireButton() {
           const button = document.getElementById('fire-button');
           const cooldown = document.getElementById('fire-cooldown');
-
-          // 檢查元素是否存在，避免錯誤
-          if (!button || !cooldown) {
-              console.warn('Fire button 或 cooldown 元素不存在');
-              return;
-          }
 
           if (fireReady) {
               button.disabled = false;
@@ -1131,11 +884,6 @@
 
       function showNotification(message, type = 'info') {
           const notification = document.getElementById('notification');
-          if (!notification) {
-              console.warn('Notification 元素不存在');
-              return;
-          }
-
           notification.textContent = message;
           notification.className = `notification ${type}`;
 
@@ -1148,60 +896,39 @@
           }, 3000);
       }
 
-      // 按鈕事件（加上 null 檢查）
-      const fireButton = document.getElementById('fire-button');
-      if (fireButton) {
-          fireButton.addEventListener('click', () => {
-              if (!fireReady) return;
+      // 按鈕事件
+      document.getElementById('fire-button').addEventListener('click', () => {
+          if (!fireReady) return;
 
-              const mode = 'single';  // 預設射擊模式
-              const sound = document.getElementById('sound-effect').value;
+          const mode = 'single';  // 預設射擊模式
+          const sound = document.getElementById('sound-effect').value;
 
-              socket.emit('fire_control', { mode, sound });
-          });
-      }
+          socket.emit('fire_control', { mode, sound });
+      });
 
-      const soundEffect = document.getElementById('sound-effect');
-      if (soundEffect) {
-          soundEffect.addEventListener('change', (e) => {
-              socket.emit('sound_change', { sound: e.target.value });
-          });
-      }
+      document.getElementById('sound-effect').addEventListener('change', (e) => {
+          socket.emit('sound_change', { sound: e.target.value });
+      });
 
-      const stopAllBtn = document.getElementById('stop-all');
-      if (stopAllBtn) {
-          stopAllBtn.addEventListener('click', () => {
-              socket.emit('control_end');
-              showNotification('🛑 已停止所有動作', 'info');
-          });
-      }
+      document.getElementById('stop-all').addEventListener('click', () => {
+          socket.emit('control_end');
+          showNotification('🛑 已停止所有動作', 'info');
+      });
 
-      const centerTurretBtn = document.getElementById('center-turret');
-      if (centerTurretBtn) {
-          centerTurretBtn.addEventListener('click', () => {
-              socket.emit('pan_control', { angle: 90 });
-              socket.emit('tilt_control', { angle: 90 });
-              showNotification('🎯 雲台已回中心', 'info');
-          });
-      }
+      document.getElementById('center-turret').addEventListener('click', () => {
+          socket.emit('pan_control', { angle: 90 });
+          socket.emit('tilt_control', { angle: 90 });
+          showNotification('🎯 雲台已回中心', 'info');
+      });
 
       // 視訊串流錯誤處理
-      const videoStream = document.getElementById('video-stream');
-      const streamInfo = document.getElementById('stream-info');
+      document.getElementById('video-stream').addEventListener('error', () => {
+          document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
+      });
 
-      if (videoStream) {
-          videoStream.addEventListener('error', () => {
-              if (streamInfo) {
-                  streamInfo.textContent = '視訊串流暫時不可用';
-              }
-          });
-
-          videoStream.addEventListener('load', () => {
-              if (streamInfo) {
-                  streamInfo.textContent = '即時串流中';
-              }
-          });
-      }
+      document.getElementById('video-stream').addEventListener('load', () => {
+          document.getElementById('stream-info').textContent = '即時串流中';
+      });
 
       // ============ 音頻串流功能 ============
       let audioContext = null;
@@ -1293,8 +1020,6 @@
               socket.emit('audio_enable', { enable: false });
           }
       });
-
-        // 聊天功能已移至獨立頁面 templates/chat.html
     </script>
   </body>
 </html>
