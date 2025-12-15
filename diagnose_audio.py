@@ -17,26 +17,48 @@ try:
     print("✅ pyttsx3 已安裝")
 
     print("\n[2/4] 測試 TTS 引擎初始化...")
+
+    # 方案 1: 嘗試使用 pyttsx3
+    print("\n   方案 1: 測試 pyttsx3 + espeak...")
     try:
         engine = pyttsx3.init(driverName='espeak')
-        print("✅ TTS 引擎初始化成功")
+        print("   ✅ TTS 引擎初始化成功")
 
-        # 獲取可用的語音
-        voices = engine.getProperty('voices')
-        print(f"   可用語音數量: {len(voices)}")
-
-        # 測試語音播放
-        print("\n   測試語音播放（應該會聽到聲音）...")
-        engine.say("測試中文語音")
-        engine.say("Testing English voice")
+        # 不要取得 voices，直接嘗試播放
+        print("   測試語音播放（應該會聽到聲音）...")
+        engine.say("測試語音")
         engine.runAndWait()
-        print("✅ 語音播放測試完成")
+        print("   ✅ pyttsx3 語音播放成功！")
 
     except Exception as e:
-        print(f"❌ TTS 引擎初始化失敗: {e}")
-        print("   解決方案：")
-        print("   sudo apt-get update")
-        print("   sudo apt-get install espeak espeak-ng")
+        print(f"   ❌ pyttsx3 失敗: {e}")
+
+        # 方案 2: 使用 espeak 命令列
+        print("\n   方案 2: 測試 espeak 命令列...")
+        try:
+            import subprocess
+
+            # 測試 espeak 是否可用
+            result = subprocess.run(['espeak', '--version'],
+                                  capture_output=True,
+                                  text=True,
+                                  check=True)
+            print(f"   ✅ espeak 已安裝: {result.stdout.strip()}")
+
+            # 測試語音播放
+            print("   測試語音播放（應該會聽到聲音）...")
+            subprocess.run(['espeak', '-v', 'zh', '測試中文語音'], check=False)
+            subprocess.run(['espeak', 'Testing English voice'], check=False)
+            print("   ✅ espeak 命令列播放成功！")
+            print("   💡 建議：系統將使用 espeak 命令列作為 TTS 引擎")
+
+        except FileNotFoundError:
+            print("   ❌ espeak 未安裝")
+            print("   解決方案：")
+            print("   sudo apt-get update")
+            print("   sudo apt-get install espeak espeak-ng")
+        except Exception as e2:
+            print(f"   ❌ espeak 命令列也失敗: {e2}")
 
 except ImportError:
     print("❌ pyttsx3 未安裝")
