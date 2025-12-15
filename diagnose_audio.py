@@ -18,7 +18,7 @@ try:
 
     print("\n[2/4] 測試 TTS 引擎初始化...")
     try:
-        engine = pyttsx3.init()
+        engine = pyttsx3.init(driverName='espeak')
         print("✅ TTS 引擎初始化成功")
 
         # 獲取可用的語音
