@@ -189,7 +189,10 @@ class WebRemoteControl:
             if auth_token != self.config.CONTROL_PASSWORD and not token_valid_for_render:
                 return "❌ 無效的訪問權限", 403
 
-            return render_template('monitor.html')
+            return render_template('monitor.html',
+                                 config={
+                                     'CONTROL_PASSWORD': self.config.CONTROL_PASSWORD
+                                 })
         
         @self.app.route('/video_feed')
         def video_feed():
