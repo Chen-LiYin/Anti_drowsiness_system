@@ -930,116 +930,92 @@ class WebRemoteControl:
 
     def award_control_to_winner(self, winner_user_id, top_message):
         """授予最高票者控制權"""
-        # 嘗試處理使用者可能重新連線（sid 變更）: 透過暱稱尋找當前連線
         winner_nickname = top_message.get('username')
-        # 找到當前與該暱稱對應的 sid（若有）
+        
+        # --- 1. ID 修正邏輯 (處理重新連線) ---
+        # 嘗試透過暱稱尋找最新的 sid
         current_sids_for_nick = [sid for sid, nick in self.user_nicknames.items() if nick == winner_nickname]
         if current_sids_for_nick:
-            # 使用最新的 sid 作為 winner_user_id（代表使用者已重新連線）
-            winner_user_id = current_sids_for_nick[0]
+            winner_user_id = current_sids_for_nick[0] # 更新為最新的 ID
 
-        # 若獲勝者不在線，我們會產生一次性控制連結並試著透過通知系統發送
-        control_url = None
-        if winner_user_id not in self.connected_clients:
-            print(f"⚠️ 獲勝者 {winner_nickname} ({winner_user_id[:8]}) 已離線，將產生一次性控制連結並嘗試發送")
+        # --- 2. 統一準備資料 (Token & URLs) ---
+        # 在這裡一次性生成 Token 和網址，供後面所有邏輯使用，避免重複生成不一致
+        token = self.generate_one_time_token()
+        local_ip = self.get_local_ip()
+        
+        # 控制連結 (給贏家)
+        control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
+        # 監控連結 (給輸家)
+        monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor?auth={self.config.CONTROL_PASSWORD}"
+
+        # --- 3. Telegram 通知 (不管是線上或離線都建議留紀錄) ---
+        if self.notification_system:
+            try:
+                notif_message = f"恭喜 {winner_nickname}！您的留言獲得最高票 ({top_message['votes']}票)，獲得控制權。\n控制連結：{control_url}"
+                # 這裡傳入 control_url 讓 telegram bot 也能按鈕
+                self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
+            except Exception as e:
+                print(f"⚠️ Telegram 通知發送失敗: {e}")
+
+        # --- 4. 判斷獲勝者是否在線 ---
+        is_winner_online = winner_user_id in self.connected_clients
+
+        if not is_winner_online:
+            print(f"⚠️ 獲勝者 {winner_nickname} ({winner_user_id[:8]}) 已離線")
+            
+            # 通知管理員/控制器房間
             self.socketio.emit('winner_offline', {
-                'message': '獲勝者已離線，已產生一次性連結供轉發'
+                'message': f'獲勝者 {winner_nickname} 已離線，已產生連結供轉發',
+                'control_url': control_url 
             }, room='controllers')
 
-            # 產生 token 並組成控制連結
-            token = self.generate_one_time_token()
-            local_ip = self.get_local_ip()
-            control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
-
-            # 如果有通知系統，使用它發送控制連結
-            if self.notification_system:
-                notif_message = f"您的留言獲得最高票！請使用以下一次性連結在短時間內獲取雲台控制權：\n{control_url}"
-                try:
-                    self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
-                    print("✅ 已透過 NotificationSystem 發送控制連結（可能需手動轉發給獲勝者）")
-                except Exception as e:
-                    print(f"⚠️ 發送控制連結失敗: {e}")
-
-            # 發送監控連結給其他在線用戶（無搖桿）
-            try:
-                monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor?auth={self.config.CONTROL_PASSWORD}"
-                for cid in list(self.connected_clients):
-                    # 不對獲勝者發送監控連結（因為獲勝者離線）
-                    self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
-                print("✅ 已向在線用戶發送監控連結")
-            except Exception as e:
-                print(f"⚠️ 發送監控連結失敗: {e}")
-
+            # 給所有在線的人發送監控連結 (因為沒人獲得即時控制權)
+            self.socketio.emit('monitor_link', {'url': monitor_url}, broadcast=True)
+            
             return control_url
 
-        # 撤銷當前控制者的權限
+        # --- 5. 獲勝者在線：執行授權流程 ---
+        
+        # A. 撤銷舊權限
         if self.control_active and self.current_controller != winner_user_id:
             self.revoke_remote_control(reason="最高票者獲得控制權")
 
-        # 授予控制權給獲勝者（在線情況）
+        # B. 設定新權限
         self.control_active = True
         self.current_controller = winner_user_id
+        print(f"🎮 控制權授予獲勝者: {winner_user_id[:8]} ({winner_nickname})")
 
-        print(f"🎮 控制權授予獲勝者: {winner_user_id[:8]} ({top_message['username']})")
-
-        # 通知獲勝者
-        self.socketio.emit('control_granted', {
-            'controller_id': winner_user_id,
-            'emergency': False,
-            'reason': 'winner',
-            'message': f'恭喜！您的留言獲得最高票 ({top_message["votes"]} 票)，已獲得控制權！'
-        }, room=winner_user_id)
-
-        # 同時產生一次性連結（可用於紀錄或額外通知）
-        if self.notification_system:
-            try:
-                token = self.generate_one_time_token()
-                local_ip = self.get_local_ip()
-                control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
-                notif_message = f"恭喜 {top_message['username']}！您的留言獲得最高票，已被授予控制權。若需要可使用以下一次性連結再次登入控制介面：\n{control_url}"
-                self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
-            except Exception as e:
-                print(f"⚠️ 發送獲勝者控制連結失敗: {e}")
-
-        # 發送監控連結給其他在線用戶（無搖桿），並發送控制連結給獲勝者
+        # C. 發送控制權事件 (給贏家)
+        # 這裡包含 control_link 事件，前端收到會跳出金色 Toastify
         try:
-            local_ip = self.get_local_ip()
-            monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor?auth={self.config.CONTROL_PASSWORD}"
-
-            # 先發 monitor_link 給所有（稍後單獨發 control_link 給獲勝者覆蓋）
-            for cid in list(self.connected_clients):
-                if cid != winner_user_id:
-                    self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
-
-            # 產生一個控制用的一次性連結並發送給獲勝者（透過 socket event）
-            token = self.generate_one_time_token()
-            control_url = f"http://{local_ip}:{self.config.FLASK_PORT}/remote_control?auth={self.config.CONTROL_PASSWORD}&token={token}"
-            self.socketio.emit('control_link', {'url': control_url}, room=winner_user_id)
-
-            print("✅ 已發送 control_link 給獲勝者，monitor_link 給其他在線用戶")
+            self.socketio.emit('control_link', {
+                'url': control_url, 
+                'token': token,
+                'message': '恭喜獲得控制權！'
+            }, room=winner_user_id)
+            
+            # 可選：發送 control_granted 用於切換 UI 狀態 (如果不依賴 URL 跳轉)
+            self.socketio.emit('control_granted', {
+                'controller_id': winner_user_id,
+                'reason': 'winner'
+            }, room=winner_user_id)
+            
         except Exception as e:
-            print(f"⚠️ 發送連結失敗: {e}")
+            print(f"⚠️ 發送控制連結給獲勝者失敗: {e}")
 
-        # 廣播給所有人
+        # D. 發送監控連結 (給除了贏家以外的所有人)
+        # 這裡使用 broadcast=True 但配合 skip_sid (如果你的 socketio 版本支援) 
+        # 或者用迴圈，你原本的迴圈寫法是最穩的：
+        for cid in list(self.connected_clients):
+            if cid != winner_user_id:
+                self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
+
+        # E. 公告結果 (給所有人)
         self.socketio.emit('winner_announced', {
-            'winner': top_message['username'],
-            'message': top_message['message'],
-            'votes': top_message['votes']
-        }, room='controllers')
-
-        # 發送 monitor_link 給其他在線用戶，並 control_link 給獲勝者
-        try:
-            local_ip = self.get_local_ip()
-            monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor?auth={self.config.CONTROL_PASSWORD}"
-            for cid in list(self.connected_clients):
-                if cid != winner_user_id:
-                    self.socketio.emit('monitor_link', {'url': monitor_url}, room=cid)
-
-            if control_url:
-                self.socketio.emit('control_link', {'url': control_url}, room=winner_user_id)
-
-        except Exception as e:
-            print(f"⚠️ 發送連結失敗: {e}")
+            'winner': winner_nickname,
+            'message': top_message.get('message', ''),
+            'votes': top_message.get('votes', 0)
+        }, broadcast=True) # 建議用 broadcast=True 確保大家都看得到
 
         return control_url
 

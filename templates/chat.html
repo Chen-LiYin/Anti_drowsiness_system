@@ -396,8 +396,57 @@
         });
       };
 
-      // 一般通知 (Toastify)
-      function showNotification(msg, type = 'info') {
+      // 添加通知到面板（用於投票結果和 URL 連結）
+      function addNotificationToPanel(msg, type = 'info', url = null) {
+        console.log('📢 addNotificationToPanel 被呼叫:', { msg, type, url });
+        const item = document.createElement('div');
+        item.className = `notification-item ${type}`;
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'notification-text';
+        textSpan.textContent = msg;
+        item.appendChild(textSpan);
+
+        if (url) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.className = 'notification-link';
+          link.textContent = '開啟';
+          item.appendChild(link);
+          console.log('🔗 已添加連結按鈕');
+        }
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'notification-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.onclick = () => {
+          item.remove();
+          if (notificationPanel.children.length === 0) {
+            notificationPanel.classList.remove('show');
+          }
+        };
+        item.appendChild(closeBtn);
+
+        notificationPanel.appendChild(item);
+        notificationPanel.classList.add('show');
+        console.log('✅ 通知已添加到面板');
+
+        // 自動移除（如果沒有 URL）
+        if (!url) {
+          setTimeout(() => {
+            if (item.parentNode) {
+              item.remove();
+              if (notificationPanel.children.length === 0) {
+                notificationPanel.classList.remove('show');
+              }
+            }
+          }, 10000);
+        }
+      }
+
+      // 一般通知 (Toastify) - 支援 URL 連結
+      function showNotification(msg, type = 'info', url = null) {
         const colors = {
           success: 'linear-gradient(90deg, #00b09b, #96c93d)',
           error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
@@ -407,16 +456,41 @@
         const bg = colors[type] || colors.info;
 
         if (window.Toastify) {
-          Toastify({
-            text: msg,
-            duration: 4000,
+          const toastConfig = {
+            duration: url ? 10000 : 4000, // URL 通知顯示更久
             gravity: 'top',
             position: 'right',
             close: true,
             style: {
               background: bg,
             },
-          }).showToast();
+          };
+
+          // 如果有 URL，使用 HTML 模式顯示按鈕
+          if (url) {
+            toastConfig.text = `
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="flex: 1;">${msg}</span>
+                <a href="${url}" target="_blank"
+                   style="background: rgba(255,255,255,0.3);
+                          color: #fff;
+                          padding: 6px 12px;
+                          border-radius: 12px;
+                          text-decoration: none;
+                          white-space: nowrap;
+                          font-weight: bold;">
+                  🔗 開啟
+                </a>
+              </div>
+            `;
+            toastConfig.escapeMarkup = false; // 允許 HTML
+            toastConfig.destination = url; // 點擊整個 toast 也能開啟
+            toastConfig.newWindow = true;
+          } else {
+            toastConfig.text = msg;
+          }
+
+          Toastify(toastConfig).showToast();
         } else {
           console.log(msg);
         }
@@ -530,8 +604,11 @@
           // 在狀態欄顯示結果
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
 
-          // 所有人都能看到的通知
-          showNotification(`🏆 獲勝者: ${d.top_message.username}`, 'info');
+          // ★★★ 顯示在面板上 ★★★
+          addNotificationToPanel(
+            `🏆 獲勝留言: "${d.top_message.message}" - ${d.top_message.username} (${d.top_message.votes} 票)`,
+            'success'
+          );
 
           // 如果自己是贏家，稍微提示一下 (主要的控制權由 control_link 處理)
           if (myNickname && d.top_message.username === myNickname) {
@@ -555,58 +632,31 @@
           // 更新狀態欄的文字連結
           chatStatus.innerHTML = `🏆 恭喜獲勝！ <a href="${data.url}" target="_blank" style="color:#FFD700; font-weight:bold; text-decoration:underline;">點此進入控制介面</a>`;
 
-          // ★★★ 呼叫 Toastify 顯示全螢幕點擊跳轉 ★★★
-          if (window.Toastify) {
-            Toastify({
-              text: '👑 恭喜！你獲得了最高票！\n👉 點擊這裡立刻前往控制水槍 👈',
-              destination: data.url, // 設定跳轉網址
-              newWindow: false, // false = 原視窗跳轉 (因為這是 Web App)，true = 開新分頁
-              duration: -1, // -1 代表不會自動消失，一定要點
-              close: true, // 顯示關閉按鈕
-              gravity: 'top', // 顯示在上方
-              position: 'center', // 置中
-              stopOnFocus: true, // 滑鼠移上去不消失
-              style: {
-                background: 'linear-gradient(135deg, #FFD700 0%, #FF8C00 100%)', // 金色漸層
-                color: '#000', // 黑字比較明顯
-                fontSize: '20px', // 大字體
-                fontWeight: 'bold',
-                textAlign: 'center',
-                padding: '30px', // 大一點的版面
-                boxShadow: '0 10px 30px rgba(0,0,0,0.5)', // 強烈陰影
-                borderRadius: '15px',
-                border: '2px solid #FFF',
-                cursor: 'pointer', // 游標變手指
-              },
-              onClick: function () {
-                console.log('使用者點擊了控制權通知');
-              },
-            }).showToast();
-          } else {
-            // 如果 Toastify 還沒載入的備案
-            alert('恭喜獲勝！請點擊狀態列的連結進入控制台。');
-          }
+          // ★★★ 顯示在面板上 ★★★
+          addNotificationToPanel(
+            '🏆 您獲得控制權！點擊以進入控制介面',
+            'success',
+            data.url
+          );
+
+          // ★★★ 同時也用 Toastify 顯示（從右邊彈出，帶有可點擊的按鈕）★★★
+          showNotification('🏆 恭喜獲勝！您已獲得控制權', 'success', data.url);
         }
       });
 
       // 3. 監控連結 (給其他人看的)
       socket.on('monitor_link', (data) => {
+        console.log('🔎 收到 monitor_link 事件:', data);
         if (data && data.url) {
-          // 普通的通知，不用那麼誇張
-          if (window.Toastify) {
-            Toastify({
-              text: '📺 點擊觀看即時監控畫面',
-              destination: data.url,
-              newWindow: true,
-              duration: 10000,
-              gravity: 'bottom',
-              position: 'right',
-              close: true,
-              style: {
-                background: 'linear-gradient(to right, #00b09b, #96c93d)',
-              },
-            }).showToast();
-          }
+          // ★★★ 顯示在面板上 ★★★
+          addNotificationToPanel(
+            '🔎 已收到監控連結（僅觀看）',
+            'info',
+            data.url
+          );
+
+          // ★★★ 同時也用 Toastify 顯示（帶有可點擊的按鈕）★★★
+          showNotification('🔎 已收到監控連結（僅觀看）', 'info', data.url);
         }
       });
     </script>
