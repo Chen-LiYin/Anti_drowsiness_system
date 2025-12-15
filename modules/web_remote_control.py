@@ -617,6 +617,17 @@ class WebRemoteControl:
                 emit('control_denied', {'message': '無效或已過期的 token'})
                 return
 
+            # ★★★ 如果已有其他控制者，強制撤銷 ★★★
+            if self.control_active and self.current_controller and self.current_controller != sid:
+                old_controller = self.current_controller
+                print(f"⚠️ 強制撤銷舊控制者: {old_controller} (新獲勝者: {sid})")
+
+                # 通知舊控制者被撤銷
+                self.socketio.emit('control_revoked', {
+                    'reason': '新的獲勝者使用 token 獲取控制權',
+                    'message': '控制權已被新的獲勝者接管'
+                }, room=old_controller)
+
             # 授予控制權給該連線
             self.control_active = True
             self.current_controller = sid
@@ -977,32 +988,28 @@ class WebRemoteControl:
             
             return control_url
 
-        # --- 5. 獲勝者在線：執行授權流程 ---
-        
-        # A. 撤銷舊權限
-        if self.control_active and self.current_controller != winner_user_id:
+        # --- 5. 獲勝者在線：發送控制連結 ---
+
+        # A. 撤銷舊權限（如果有的話）
+        if self.control_active and self.current_controller:
+            print(f"⚠️ 撤銷舊控制者: {self.current_controller[:8]} (準備給新獲勝者)")
             self.revoke_remote_control(reason="最高票者獲得控制權")
 
-        # B. 設定新權限
-        self.control_active = True
-        self.current_controller = winner_user_id
-        print(f"🎮 控制權授予獲勝者: {winner_user_id[:8]} ({winner_nickname})")
+        # B. ★★★ 不要在這裡立即設定控制者 ★★★
+        # 因為獲勝者目前在聊天室（Socket ID: winner_user_id）
+        # 當他點擊連結進入控制頁面時，會有新的 Socket ID
+        # 屆時會通過 claim_token 來獲得控制權
+        print(f"🎫 為獲勝者 {winner_nickname} 生成控制連結（包含 token）")
 
         # C. 發送控制權事件 (給贏家)
         # 這裡包含 control_link 事件，前端收到會跳出金色 Toastify
         try:
             self.socketio.emit('control_link', {
-                'url': control_url, 
+                'url': control_url,
                 'token': token,
                 'message': '恭喜獲得控制權！'
             }, room=winner_user_id)
-            
-            # 可選：發送 control_granted 用於切換 UI 狀態 (如果不依賴 URL 跳轉)
-            self.socketio.emit('control_granted', {
-                'controller_id': winner_user_id,
-                'reason': 'winner'
-            }, room=winner_user_id)
-            
+
         except Exception as e:
             print(f"⚠️ 發送控制連結給獲勝者失敗: {e}")
 

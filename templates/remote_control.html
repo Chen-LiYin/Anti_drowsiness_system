@@ -796,8 +796,19 @@
       // SocketIO 事件處理
       socket.on('connect', () => {
           updateConnectionStatus('control-active', '控制中');
-          // 自動請求控制權限
-          socket.emit('control_start');
+
+          // ★★★ 檢查 URL 中是否有 token 參數（獲勝者連結）★★★
+          const urlParams = new URLSearchParams(window.location.search);
+          const token = urlParams.get('token');
+
+          if (token) {
+              // 使用一次性 token 獲取控制權（會強制撤銷舊控制者）
+              console.log('🎫 檢測到 token，使用 claim_token 獲取控制權');
+              socket.emit('claim_token', { token: token });
+          } else {
+              // 一般控制權請求
+              socket.emit('control_start');
+          }
       });
 
       socket.on('disconnect', () => {
