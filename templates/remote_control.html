@@ -873,16 +873,17 @@
              }
 
              function updateFireButton() {
-                 const button = document.getElementById('fire-button');
-                 const cooldown = document.getElementById('fire-cooldown');
-
-                 if (fireReady) {
-                     button.disabled = false;
-                     cooldown.style.display = 'none';
-                 } else {
-                     button.disabled = true;
-                     cooldown.style.display = 'flex';
-                 }
+                 // ⚠️ 已改用虛擬按鈕（FireButton class），不需要更新 DOM 元素
+                 // const button = document.getElementById('fire-button');
+                 // const cooldown = document.getElementById('fire-cooldown');
+                 //
+                 // if (fireReady) {
+                 //     button.disabled = false;
+                 //     cooldown.style.display = 'none';
+                 // } else {
+                 //     button.disabled = true;
+                 //     cooldown.style.display = 'flex';
+                 // }
              }
 
              function showNotification(message, type = 'info') {
@@ -899,39 +900,42 @@
                  }, 3000);
              }
 
+             // ⚠️ 已改用虛擬按鈕（FireButton class），此事件監聽器已無用
              // 按鈕事件
-             document.getElementById('fire-button').addEventListener('click', () => {
-                 if (!fireReady) return;
-
-                 const mode = 'single';  // 預設射擊模式
-                 const sound = document.getElementById('sound-effect').value;
-
-                 socket.emit('fire_control', { mode, sound });
-             });
+             // document.getElementById('fire-button').addEventListener('click', () => {
+             //     if (!fireReady) return;
+             //
+             //     const mode = 'single';  // 預設射擊模式
+             //     const sound = document.getElementById('sound-effect').value;
+             //
+             //     socket.emit('fire_control', { mode, sound });
+             // });
 
              document.getElementById('sound-effect').addEventListener('change', (e) => {
                  socket.emit('sound_change', { sound: e.target.value });
              });
 
-             document.getElementById('stop-all').addEventListener('click', () => {
-                 socket.emit('control_end');
-                 showNotification('🛑 已停止所有動作', 'info');
-             });
+             // ⚠️ 以下按鈕在 HTML 中不存在，已註解避免 JavaScript 錯誤
+             // document.getElementById('stop-all').addEventListener('click', () => {
+             //     socket.emit('control_end');
+             //     showNotification('🛑 已停止所有動作', 'info');
+             // });
 
-             document.getElementById('center-turret').addEventListener('click', () => {
-                 socket.emit('pan_control', { angle: 90 });
-                 socket.emit('tilt_control', { angle: 90 });
-                 showNotification('🎯 雲台已回中心', 'info');
-             });
+             // document.getElementById('center-turret').addEventListener('click', () => {
+             //     socket.emit('pan_control', { angle: 90 });
+             //     socket.emit('tilt_control', { angle: 90 });
+             //     showNotification('🎯 雲台已回中心', 'info');
+             // });
 
+             // ⚠️ stream-info 元素在 HTML 中不存在，已註解避免 JavaScript 錯誤
              // 視訊串流錯誤處理
-             document.getElementById('video-stream').addEventListener('error', () => {
-                 document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
-             });
+             // document.getElementById('video-stream').addEventListener('error', () => {
+             //     document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
+             // });
 
-             document.getElementById('video-stream').addEventListener('load', () => {
-                 document.getElementById('stream-info').textContent = '即時串流中';
-             });
+             // document.getElementById('video-stream').addEventListener('load', () => {
+             //     document.getElementById('stream-info').textContent = '即時串流中';
+             // });
 
             document.addEventListener('DOMContentLoaded', function() {
           console.log("🚀 網頁載入完成，開始初始化音頻控制...");
