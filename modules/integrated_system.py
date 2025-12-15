@@ -14,6 +14,7 @@ import os
 from datetime import datetime
 from queue import Queue
 import requests
+import pyttsx3  # TTS 語音合成
 
 # 添加父目錄到路徑
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -58,6 +59,7 @@ class IntegratedAntiDrowsinessSystem:
         self.init_notification_system()
         self.init_event_recorder()
         self.init_web_remote_control()
+        self.init_tts_engine()  # 初始化 TTS 語音引擎
         
         # 系統狀態
         self.running = True
@@ -77,7 +79,7 @@ class IntegratedAntiDrowsinessSystem:
         self.drowsy_trigger_time = None  # 第一次檢測到瞌睡的時間
         self.alert_trigger_time = None   # 第一次檢測到清醒的時間
         self.drowsy_threshold = 30  # 瞌睡確認時間（秒）
-        self.alert_threshold = 30   # 清醒確認時間（秒）
+        self.alert_threshold = 15   # 清醒確認時間（秒）
         
         # 線程控制
         self.threads = []
@@ -273,7 +275,40 @@ class IntegratedAntiDrowsinessSystem:
         except Exception as e:
             print(f"❌ 網頁遠程控制系統初始化失敗: {e}")
             self.web_control = None
-    
+
+    def init_tts_engine(self):
+        """初始化 TTS 語音引擎"""
+        print("🗣️ 初始化 TTS 語音引擎...")
+        try:
+            self.tts_engine = pyttsx3.init()
+
+            # 設定語音屬性
+            self.tts_engine.setProperty('rate', 150)  # 語速
+            self.tts_engine.setProperty('volume', 0.9)  # 音量
+
+            print("✅ TTS 語音引擎初始化成功")
+        except Exception as e:
+            print(f"❌ TTS 語音引擎初始化失敗: {e}")
+            self.tts_engine = None
+
+    def speak_text(self, text):
+        """語音播放文字內容（使用背景執行緒避免阻塞）"""
+        if not self.tts_engine:
+            print("⚠️ TTS 引擎未初始化，無法語音播放")
+            return
+
+        def speak_thread():
+            try:
+                print(f"🗣️ 語音播放: {text}")
+                self.tts_engine.say(text)
+                self.tts_engine.runAndWait()
+            except Exception as e:
+                print(f"❌ 語音播放失敗: {e}")
+
+        # 使用背景執行緒避免阻塞主程式
+        thread = threading.Thread(target=speak_thread, daemon=True)
+        thread.start()
+
     def print_system_info(self):
         """打印系統信息"""
         print(f"\\n📋 系統配置信息:")
@@ -512,7 +547,7 @@ class IntegratedAntiDrowsinessSystem:
                 print("✓ 瞌睡跡象消失，重置計時器")
             self.drowsy_trigger_time = None
 
-        # 清醒狀態檢測（需要持續 30 秒才確認）
+        # 清醒狀態檢測（需要持續 15 秒才確認）
         if current_state == 'Alert' and self.drowsy_session_active:
             # 記錄第一次檢測到清醒的時間
             if self.alert_trigger_time is None:
@@ -520,23 +555,36 @@ class IntegratedAntiDrowsinessSystem:
                 drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
                 print(f"✓ 偵測到清醒跡象（已瞌睡 {drowsy_duration:.1f} 秒），開始計時...")
 
-            # 檢查是否持續清醒 30 秒
+            # 檢查是否持續清醒 15 秒
             alert_elapsed_time = time.time() - self.alert_trigger_time
             if alert_elapsed_time >= self.alert_threshold:
                 # 確認清醒，結束瞌睡會話
                 drowsy_duration = time.time() - self.drowsy_start_time if self.drowsy_start_time else 0
                 print(f"\n😊 確認用戶已甦醒 (持續清醒 {alert_elapsed_time:.1f} 秒)！瞌睡總時長: {drowsy_duration:.1f} 秒")
 
-                # 結束聊天會話並獲取最高票留言
+                # 獲取最高票留言（已在倒數結束時計算並保存）
                 top_message = None
-                if self.web_control:
-                    top_message = self.web_control.end_chat_session()
+                if self.web_control and hasattr(self.web_control, 'last_winner_message'):
+                    top_message = self.web_control.last_winner_message
+
                     if top_message:
                         print(f"\n🏆 最高票留言: {top_message['username']}: {top_message['message']}")
                         print(f"   票數: {top_message['votes']}")
+
                         # 播放提示音
                         self.play_winner_sound()
-                        # 注意：最高票者已在 end_chat_session() 中自動獲得控制權
+
+                        # ★★★ 語音播放最高票留言 ★★★
+                        message_text = top_message['message']
+                        username = top_message['username']
+                        speak_content = f"{username} 說：{message_text}"
+                        self.speak_text(speak_content)
+                        print(f"🗣️ 準備語音播放：{speak_content}")
+
+                        # 清除已播放的訊息
+                        self.web_control.last_winner_message = None
+
+                        # 注意：最高票者已在倒數結束時自動獲得控制權
 
                 # 記錄瞌睡結束事件
                 if self.event_recorder:

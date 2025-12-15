@@ -99,6 +99,7 @@ class WebRemoteControl:
         # 一次性控制連結 token 存儲: {token: {'expires_at': float, 'used': bool}}
         self.one_time_tokens = {}
         self.notification_system = None
+        self.last_winner_message = None  # 保存最高票訊息供主人醒來時語音播放
 
         self.setup_routes()
         self.setup_socketio_events()
@@ -906,7 +907,10 @@ class WebRemoteControl:
             }, room='controllers')
 
             # ★★★ 自動結束聊天會話，計算最高票並授予控制權 ★★★
-            self.end_chat_session()
+            top_message = self.end_chat_session()
+
+            # 保存最高票訊息供主人醒來時語音播放
+            self.last_winner_message = top_message
 
     def end_chat_session(self):
         """結束聊天會話（醒來時觸發）"""
