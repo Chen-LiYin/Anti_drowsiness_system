@@ -91,19 +91,35 @@
         }
       }
       .notification-item.info {
-        background: linear-gradient(90deg, rgba(0, 212, 255, 0.2), rgba(0, 153, 204, 0.2));
+        background: linear-gradient(
+          90deg,
+          rgba(0, 212, 255, 0.2),
+          rgba(0, 153, 204, 0.2)
+        );
         border-left: 3px solid #00d4ff;
       }
       .notification-item.success {
-        background: linear-gradient(90deg, rgba(0, 176, 155, 0.2), rgba(150, 201, 61, 0.2));
+        background: linear-gradient(
+          90deg,
+          rgba(0, 176, 155, 0.2),
+          rgba(150, 201, 61, 0.2)
+        );
         border-left: 3px solid #00b09b;
       }
       .notification-item.warning {
-        background: linear-gradient(90deg, rgba(243, 156, 18, 0.2), rgba(241, 196, 15, 0.2));
+        background: linear-gradient(
+          90deg,
+          rgba(243, 156, 18, 0.2),
+          rgba(241, 196, 15, 0.2)
+        );
         border-left: 3px solid #f39c12;
       }
       .notification-item.error {
-        background: linear-gradient(90deg, rgba(255, 95, 109, 0.2), rgba(255, 195, 113, 0.2));
+        background: linear-gradient(
+          90deg,
+          rgba(255, 95, 109, 0.2),
+          rgba(255, 195, 113, 0.2)
+        );
         border-left: 3px solid #ff5f6d;
       }
       .notification-text {
@@ -284,6 +300,22 @@
     <script>
       const socket = io();
 
+      // Debug: 監聽所有事件 (保持你的 Debug 設定)
+      const originalOn = socket.on.bind(socket);
+      const originalEmit = socket.emit.bind(socket);
+
+      socket.on = function (event, callback) {
+        return originalOn(event, function (...args) {
+          console.log(`📥 收到事件: ${event}`, args);
+          return callback.apply(this, args);
+        });
+      };
+
+      socket.emit = function (event, ...args) {
+        console.log(`📤 發送事件: ${event}`, args);
+        return originalEmit(event, ...args);
+      };
+
       let chatActive = false;
       let userVoted = false;
       let myNickname = null;
@@ -294,118 +326,9 @@
       const chatStatus = document.getElementById('chat-status');
       const notificationPanel = document.getElementById('notification-panel');
 
-      // 添加重要通知到面板（僅用於投票結果和 URL 連結）
-      function addNotificationToPanel(msg, type = 'info', url = null) {
-        console.log('📢 addNotificationToPanel 被呼叫:', { msg, type, url });
-        const item = document.createElement('div');
-        item.className = `notification-item ${type}`;
+      // --- 輔助函式區域 ---
 
-        const textSpan = document.createElement('span');
-        textSpan.className = 'notification-text';
-        textSpan.textContent = msg;
-        item.appendChild(textSpan);
-
-        if (url) {
-          const link = document.createElement('a');
-          link.href = url;
-          link.target = '_blank';
-          link.className = 'notification-link';
-          link.textContent = '開啟';
-          item.appendChild(link);
-          console.log('🔗 已添加連結按鈕');
-        }
-
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'notification-close';
-        closeBtn.innerHTML = '×';
-        closeBtn.onclick = () => {
-          item.remove();
-          if (notificationPanel.children.length === 0) {
-            notificationPanel.classList.remove('show');
-          }
-        };
-        item.appendChild(closeBtn);
-
-        notificationPanel.appendChild(item);
-        notificationPanel.classList.add('show');
-        console.log('✅ 通知已添加到面板，面板應該顯示了');
-
-        // 自動移除（如果沒有 URL）
-        if (!url) {
-          setTimeout(() => {
-            if (item.parentNode) {
-              item.remove();
-              if (notificationPanel.children.length === 0) {
-                notificationPanel.classList.remove('show');
-              }
-            }
-          }, 8000);
-        }
-      }
-
-      // 一般通知使用 Toastify（從右邊彈出）
-      function showNotification(msg, type = 'info') {
-        const colors = {
-          success: 'linear-gradient(90deg, #00b09b, #96c93d)',
-          error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
-          warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
-          info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
-        };
-        const bg = colors[type] || colors.info;
-        if (window.Toastify) {
-          Toastify({
-            text: msg,
-            duration: 4000,
-            gravity: 'top',
-            position: 'right',
-            close: true,
-            style: { background: bg },
-          }).showToast();
-        } else {
-          try {
-            console.log('[NOTIF]', type, msg);
-          } catch (e) {}
-          // fallback
-          alert(msg);
-        }
-      }
-
-      // 顯示帶連結的 toast（訊息 + 可點擊連結）- 從右邊彈出
-      function showLinkToast(message, url, type = 'info') {
-        const bg =
-          {
-            success: 'linear-gradient(90deg, #00b09b, #96c93d)',
-            error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
-            warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
-            info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
-          }[type] || 'linear-gradient(90deg, #00d4ff, #0099cc)';
-
-        if (window.Toastify) {
-          Toastify({
-            node: (function () {
-              const n = document.createElement('div');
-              const t = document.createTextNode(message + ' ');
-              const a = document.createElement('a');
-              a.href = url;
-              a.target = '_blank';
-              a.style.color = '#fff';
-              a.style.textDecoration = 'underline';
-              a.textContent = '點此開啟';
-              n.appendChild(t);
-              n.appendChild(a);
-              return n;
-            })(),
-            duration: 10000,
-            gravity: 'top',
-            position: 'right',
-            close: true,
-            style: { background: bg },
-          }).showToast();
-        } else {
-          alert(message + '\n' + url);
-        }
-      }
-
+      // 格式化時間
       function formatTime(isoString) {
         const date = new Date(isoString);
         return date.toLocaleTimeString('zh-TW', {
@@ -414,6 +337,7 @@
         });
       }
 
+      // 渲染訊息
       function renderMessage(msg, canVote) {
         const div = document.createElement('div');
         div.className = 'chat-message';
@@ -434,6 +358,7 @@
         return div;
       }
 
+      // 更新聊天列表
       function updateChatMessages(messages) {
         chatMessages.innerHTML = '';
         messages.forEach((msg) => {
@@ -443,6 +368,7 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
 
+      // 發送訊息
       function sendMessage() {
         const message = chatInput.value.trim();
         if (!message) {
@@ -457,25 +383,52 @@
           showNotification('訊息不能超過50字', 'warning');
           return;
         }
-        socket.emit('send_message', { message });
+        socket.emit('send_message', {
+          message,
+        });
         chatInput.value = '';
       }
 
-      function voteMessage(id) {
-        socket.emit('vote_message', { message_id: id });
+      // 投票
+      window.voteMessage = function (id) {
+        socket.emit('vote_message', {
+          message_id: id,
+        });
+      };
+
+      // 一般通知 (Toastify)
+      function showNotification(msg, type = 'info') {
+        const colors = {
+          success: 'linear-gradient(90deg, #00b09b, #96c93d)',
+          error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
+          warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
+          info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+        };
+        const bg = colors[type] || colors.info;
+
+        if (window.Toastify) {
+          Toastify({
+            text: msg,
+            duration: 4000,
+            gravity: 'top',
+            position: 'right',
+            close: true,
+            style: {
+              background: bg,
+            },
+          }).showToast();
+        } else {
+          console.log(msg);
+        }
       }
 
+      // 監聽按鈕事件
       chatSendBtn.addEventListener('click', sendMessage);
       chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
       });
 
-      // Socket events
-      socket.on('connect', () => {
-        socket.emit('get_chat_status');
-      });
-
-      // 設定暱稱
+      // 設定暱稱相關
       const nicknameInput = document.getElementById('nickname-input');
       const setNicknameBtn = document.getElementById('set-nickname-btn');
       setNicknameBtn.addEventListener('click', () => {
@@ -484,16 +437,23 @@
           showNotification('暱稱不能為空', 'warning');
           return;
         }
-        socket.emit('set_nickname', { nickname: nick });
+        socket.emit('set_nickname', {
+          nickname: nick,
+        });
+      });
+
+      // --- Socket 事件處理 ---
+
+      socket.on('connect', () => {
+        console.log('✅ Socket.IO 已連接，ID:', socket.id);
+        socket.emit('get_chat_status');
       });
 
       socket.on('nickname_set', (data) => {
         myNickname = data.nickname;
         showNotification(`已設定暱稱：${myNickname}`, 'success');
-        // 啟用輸入
         chatInput.disabled = false;
         document.getElementById('chat-send-btn').disabled = false;
-        // 將暱稱輸入鎖定
         nicknameInput.disabled = true;
         setNicknameBtn.disabled = true;
       });
@@ -506,14 +466,14 @@
           updateChatMessages(data.messages);
         }
       });
+
       socket.on('new_message', (message) => {
         const canVote =
           !userVoted && chatActive && message.user_id !== socket.id;
         chatMessages.appendChild(renderMessage(message, canVote));
         chatMessages.scrollTop = chatMessages.scrollHeight;
-        if (message.user_id !== socket.id)
-          showNotification(`${message.username}: ${message.message}`, 'info');
       });
+
       socket.on('vote_update', (data) => {
         const messageDiv = document.querySelector(
           `[data-message-id="${data.message_id}"]`
@@ -523,22 +483,18 @@
           if (votesSpan) votesSpan.textContent = `❤️ ${data.votes}`;
         }
       });
-      socket.on('vote_success', (d) => {
+
+      socket.on('vote_success', () => {
         userVoted = true;
         showNotification('投票成功！', 'success');
-        document.querySelectorAll('.vote-btn').forEach((b) => {
-          b.disabled = true;
-          b.textContent = '已投票';
-        });
+        // 重新整理列表以移除投票按鈕
+        socket.emit('get_chat_status');
       });
-      socket.on('chat_error', (d) => {
-        showNotification(d.message, 'error');
-      });
+
       socket.on('chat_session_started', (d) => {
         chatActive = true;
         userVoted = false;
         chatStatus.textContent = '🎯 投票倒計時開始 - 60 秒內快來投票！';
-        // 顯示倒數計時
         const timerEl = document.getElementById('timer-display');
         const timerSeconds = document.getElementById('timer-seconds');
         if (timerEl && timerSeconds) {
@@ -546,69 +502,111 @@
           timerSeconds.textContent = d.duration || 60;
         }
         showNotification(d.message, 'success');
-        socket.emit('get_chat_status');
+        socket.emit('get_chat_status'); // 確保同步狀態
       });
+
       socket.on('chat_timer_update', (d) => {
         const timerSeconds = document.getElementById('timer-seconds');
         if (timerSeconds) timerSeconds.textContent = d.time_remaining;
       });
+
       socket.on('chat_timer_ended', (d) => {
         showNotification(d.message, 'info');
-        socket.emit('get_chat_status');
-        chatStatus.textContent = ' 投票已截止 - 等待主人醒來結算';
+        chatStatus.textContent = '⏳ 投票已截止 - 等待主人結算...';
       });
+
+      // --- 關鍵修改：獲勝者與控制權邏輯 ---
+
+      // 1. 聊天室結束，公佈結果
       socket.on('chat_session_ended', (d) => {
         console.log('🎯 收到 chat_session_ended 事件:', d);
         chatActive = false;
         userVoted = false;
+
+        // 隱藏倒數計時
+        document.getElementById('timer-display').style.display = 'none';
+
         if (d.top_message) {
-          console.log('✅ 有獲勝留言，準備顯示面板');
-          // 投票結果顯示在面板
-          addNotificationToPanel(
-            `🏆 獲勝留言: ${d.top_message.message} - ${d.top_message.username} (${d.top_message.votes} 票)`,
-            'success'
-          );
+          // 在狀態欄顯示結果
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
 
-          // 如果 payload 包含 control_url 且當前使用者為獲勝者（比對暱稱），顯示控制連結
-          if (
-            d.control_url &&
-            myNickname &&
-            d.top_message.username === myNickname
-          ) {
-            console.log('🏆 當前用戶是獲勝者，顯示控制連結');
-            chatStatus.innerHTML = `🏆 你獲勝！<a href="${d.control_url}" style="color:#00d4ff;">點此進入控制介面</a>`;
+          // 所有人都能看到的通知
+          showNotification(`🏆 獲勝者: ${d.top_message.username}`, 'info');
+
+          // 如果自己是贏家，稍微提示一下 (主要的控制權由 control_link 處理)
+          if (myNickname && d.top_message.username === myNickname) {
+            console.log('🏆 我是贏家，等待 control_link...');
           }
         } else {
-          console.log('❌ 沒有獲勝留言');
           chatStatus.textContent = '💬 主人醒來了！';
         }
+
+        // 5秒後重置畫面
         setTimeout(() => {
           chatMessages.innerHTML = `<div class=\"chat-welcome\"><p>🎯 歡迎來到互動聊天室</p><p>✍️ 您可以隨時留言（每人限一則，最多50字）</p></div>`;
           chatStatus.textContent = '💬 隨時可以留言！';
-        }, 5000);
+        }, 8000);
       });
-      // 接收控制連結或監控連結 - 顯示在面板
+
+      // 2. 【核心】收到控制連結 (只會發送給贏家)
       socket.on('control_link', (data) => {
         console.log('🏆 收到 control_link 事件:', data);
         if (data && data.url) {
-          // 使用面板顯示可點擊連結
-          addNotificationToPanel(
-            '🏆 您獲得控制權，點擊以進入控制介面',
-            'success',
-            data.url
-          );
-          // 在狀態欄也顯示連結
-          chatStatus.innerHTML = `🏆 <a href="${data.url}" style="color:#00d4ff;">點此進入控制介面</a>`;
+          // 更新狀態欄的文字連結
+          chatStatus.innerHTML = `🏆 恭喜獲勝！ <a href="${data.url}" target="_blank" style="color:#FFD700; font-weight:bold; text-decoration:underline;">點此進入控制介面</a>`;
+
+          // ★★★ 呼叫 Toastify 顯示全螢幕點擊跳轉 ★★★
+          if (window.Toastify) {
+            Toastify({
+              text: '👑 恭喜！你獲得了最高票！\n👉 點擊這裡立刻前往控制水槍 👈',
+              destination: data.url, // 設定跳轉網址
+              newWindow: false, // false = 原視窗跳轉 (因為這是 Web App)，true = 開新分頁
+              duration: -1, // -1 代表不會自動消失，一定要點
+              close: true, // 顯示關閉按鈕
+              gravity: 'top', // 顯示在上方
+              position: 'center', // 置中
+              stopOnFocus: true, // 滑鼠移上去不消失
+              style: {
+                background: 'linear-gradient(135deg, #FFD700 0%, #FF8C00 100%)', // 金色漸層
+                color: '#000', // 黑字比較明顯
+                fontSize: '20px', // 大字體
+                fontWeight: 'bold',
+                textAlign: 'center',
+                padding: '30px', // 大一點的版面
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)', // 強烈陰影
+                borderRadius: '15px',
+                border: '2px solid #FFF',
+                cursor: 'pointer', // 游標變手指
+              },
+              onClick: function () {
+                console.log('使用者點擊了控制權通知');
+              },
+            }).showToast();
+          } else {
+            // 如果 Toastify 還沒載入的備案
+            alert('恭喜獲勝！請點擊狀態列的連結進入控制台。');
+          }
         }
       });
 
+      // 3. 監控連結 (給其他人看的)
       socket.on('monitor_link', (data) => {
-        console.log('🔎 收到 monitor_link 事件:', data);
         if (data && data.url) {
-          // 使用面板顯示可點擊連結
-          addNotificationToPanel('🔎 已收到監控連結（僅觀看）', 'info', data.url);
-          chatStatus.innerHTML = `🔎 <a href="${data.url}" style="color:#00d4ff;">點此進入監控畫面</a>`;
+          // 普通的通知，不用那麼誇張
+          if (window.Toastify) {
+            Toastify({
+              text: '📺 點擊觀看即時監控畫面',
+              destination: data.url,
+              newWindow: true,
+              duration: 10000,
+              gravity: 'bottom',
+              position: 'right',
+              close: true,
+              style: {
+                background: 'linear-gradient(to right, #00b09b, #96c93d)',
+              },
+            }).showToast();
+          }
         }
       });
     </script>
