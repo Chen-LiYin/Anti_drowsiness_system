@@ -864,12 +864,15 @@ class WebRemoteControl:
                     'message': '剩餘 10 秒！'
                 }, room='controllers')
 
-        # 時間到，結束聊天會話（但不撤銷控制權）
+        # 時間到，自動結束聊天會話並計算最高票
         if self.chat_timer_active:
-            print("\n⏰ 聊天時間結束")
+            print("\n⏰ 聊天時間結束，開始計算最高票...")
             self.socketio.emit('chat_timer_ended', {
-                'message': '聊天時間結束！投票已截止'
+                'message': '聊天時間結束！投票已截止，正在計算結果...'
             }, room='controllers')
+
+            # ★★★ 自動結束聊天會話，計算最高票並授予控制權 ★★★
+            self.end_chat_session()
 
     def end_chat_session(self):
         """結束聊天會話（醒來時觸發）"""
