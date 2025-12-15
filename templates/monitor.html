@@ -383,8 +383,6 @@
           src="/video_feed?auth={{ config.CONTROL_PASSWORD }}"
           alt="視訊串流"
         />
-
-        ＼
       </div>
     </div>
 
@@ -560,12 +558,11 @@
 
       // 視訊串流錯誤處理
       document.getElementById('video-stream').addEventListener('error', () => {
-        document.getElementById('stream-info').textContent =
-          '視訊串流暫時不可用';
+        showNotification('視訊串流暫時不可用', 'error');
       });
 
       document.getElementById('video-stream').addEventListener('load', () => {
-        document.getElementById('stream-info').textContent = '即時串流中';
+        console.log('視訊串流已載入');
       });
 
       // ============ 音頻串流功能 ============

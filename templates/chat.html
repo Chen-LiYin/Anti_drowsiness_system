@@ -296,6 +296,7 @@
 
       // 添加重要通知到面板（僅用於投票結果和 URL 連結）
       function addNotificationToPanel(msg, type = 'info', url = null) {
+        console.log('📢 addNotificationToPanel 被呼叫:', { msg, type, url });
         const item = document.createElement('div');
         item.className = `notification-item ${type}`;
 
@@ -311,6 +312,7 @@
           link.className = 'notification-link';
           link.textContent = '開啟';
           item.appendChild(link);
+          console.log('🔗 已添加連結按鈕');
         }
 
         const closeBtn = document.createElement('button');
@@ -326,6 +328,7 @@
 
         notificationPanel.appendChild(item);
         notificationPanel.classList.add('show');
+        console.log('✅ 通知已添加到面板，面板應該顯示了');
 
         // 自動移除（如果沒有 URL）
         if (!url) {
@@ -555,9 +558,11 @@
         chatStatus.textContent = ' 投票已截止 - 等待主人醒來結算';
       });
       socket.on('chat_session_ended', (d) => {
+        console.log('🎯 收到 chat_session_ended 事件:', d);
         chatActive = false;
         userVoted = false;
         if (d.top_message) {
+          console.log('✅ 有獲勝留言，準備顯示面板');
           // 投票結果顯示在面板
           addNotificationToPanel(
             `🏆 獲勝留言: ${d.top_message.message} - ${d.top_message.username} (${d.top_message.votes} 票)`,
@@ -571,9 +576,11 @@
             myNickname &&
             d.top_message.username === myNickname
           ) {
+            console.log('🏆 當前用戶是獲勝者，顯示控制連結');
             chatStatus.innerHTML = `🏆 你獲勝！<a href="${d.control_url}" style="color:#00d4ff;">點此進入控制介面</a>`;
           }
         } else {
+          console.log('❌ 沒有獲勝留言');
           chatStatus.textContent = '💬 主人醒來了！';
         }
         setTimeout(() => {
@@ -583,6 +590,7 @@
       });
       // 接收控制連結或監控連結 - 顯示在面板
       socket.on('control_link', (data) => {
+        console.log('🏆 收到 control_link 事件:', data);
         if (data && data.url) {
           // 使用面板顯示可點擊連結
           addNotificationToPanel(
@@ -596,6 +604,7 @@
       });
 
       socket.on('monitor_link', (data) => {
+        console.log('🔎 收到 monitor_link 事件:', data);
         if (data && data.url) {
           // 使用面板顯示可點擊連結
           addNotificationToPanel('🔎 已收到監控連結（僅觀看）', 'info', data.url);
