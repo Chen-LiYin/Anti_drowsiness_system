@@ -89,6 +89,8 @@ class WebRemoteControl:
         # 聊天室系統
         self.vote_end_time = 0  # 新增：用來記錄「什麼時候」結束
         self.chat_active = False
+        self.timer_started = False # 新增：記錄倒數是否已觸發
+        self.vote_duration = 60
         self.chat_session_id = None
         self.chat_messages = []  # [{id, user_id, username, message, votes, timestamp}]
         self.chat_votes = {}  # {user_id: message_id} - 記錄每個用戶投給誰
@@ -257,20 +259,21 @@ class WebRemoteControl:
             # 2. 【新增】同步聊天室倒數狀態 (解決後進者沒秒數問題)
             # ==========================================
             # 檢查是否正在進行聊天室活動
-            if hasattr(self, 'chat_active') and self.chat_active:
-                # 檢查倒數時間是否還沒結束
-                if hasattr(self, 'vote_end_time'):
-                    current_time = time.time()
-                    if self.vote_end_time > current_time:
-                        # 計算剩餘秒數
-                        remaining_seconds = int(self.vote_end_time - current_time)
-                        
-                        if remaining_seconds > 0:
-                            print(f"⏱️ 補發倒數時間給 {client_id}: 剩餘 {remaining_seconds} 秒")
-                            # 單獨發送給這個新連線的人
+            if self.chat_active:
+                if not self.timer_started:
+                    # 情況 A: 聊天室開著，但還沒人來過 -> 我是第一個！觸發倒數！
+                    print(f"👤 第一位使用者 {client_id} 進入，觸發倒數！")
+                    self._trigger_countdown_start()
+                
+                else:
+                    # 情況 B: 倒數已經在進行中 -> 同步剩餘時間給我
+                    if self.vote_end_time > time.time():
+                        remaining = int(self.vote_end_time - time.time())
+                        if remaining > 0:
+                            print(f"⏱️ 補發倒數時間給 {client_id}: 剩餘 {remaining} 秒")
                             emit('chat_session_started', {
-                                'duration': remaining_seconds, # 這裡傳的是「剩下的時間」
-                                'message': '⚠️ 投票進行中，請盡快參與！'
+                                'duration': remaining,
+                                'message': '投票進行中，請盡快參與！'
                             })
             # ==========================================
             
@@ -850,7 +853,21 @@ class WebRemoteControl:
         return False
 
     # ========== 聊天室管理方法 ==========
+    def _trigger_countdown_start(self):
+            """真正觸發倒數計時的函式"""
+            if self.timer_started:
+                return
 
+            self.timer_started = True
+            self.vote_end_time = time.time() + self.vote_duration
+            
+            print(f"🚀 倒數計時正式開始！將於 {self.vote_duration} 秒後結束")
+
+            # 廣播給所有人：遊戲開始！
+            self.socketio.emit('chat_session_started', {
+                'duration': self.vote_duration,
+                'message': '第一位玩家已進入！投票倒數開始！'
+            })
     def start_chat_session(self, duration=60):
         """開始聊天會話（瞌睡時觸發）"""
         if self.chat_active:
@@ -865,23 +882,33 @@ class WebRemoteControl:
         self.chat_votes = {}
         self.chat_time_remaining = 60
         self.chat_timer_active = True
+        self.timer_started = False  # 重置計時狀態
+        self.vote_duration = duration # 暫存起來，等第一個人進來再用
 
-        print(f"\n💬 聊天會話開始: {self.chat_session_id}")
-        print("⏱️ 倒數計時器: 60 秒")
+        if len(self.connected_clients) > 0:
+            print(f"👥 目前已有 {len(self.connected_clients)} 人在線，直接開始倒數")
+            self._trigger_countdown_start()
+        else:
+            print("⏳ 目前無人在線，等待第一位使用者進入才開始倒數...")
 
-        # 廣播聊天室開啟事件
-        self.socketio.emit('chat_session_started', {
-            'session_id': self.chat_session_id,
-            'duration': duration,
-            'message': '主人睡著了！快來留言吧！'
-        }, room='controllers')
+        # print(f"\n💬 聊天會話開始: {self.chat_session_id}")
+        # print("⏱️ 倒數計時器: 60 秒")
 
-        # 啟動倒數計時器
-        self.chat_timer_thread = threading.Thread(target=self.chat_timer_countdown, daemon=True)
-        self.chat_timer_thread.start()
+        # # 廣播聊天室開啟事件
+        # self.socketio.emit('chat_session_started', {
+        #     'session_id': self.chat_session_id,
+        #     'duration': duration,
+        #     'message': '主人睡著了！快來留言吧！'
+        # }, room='controllers')
 
-        return True
+        # # 啟動倒數計時器
+        # self.chat_timer_thread = threading.Thread(target=self.chat_timer_countdown, daemon=True)
+        # self.chat_timer_thread.start()
 
+        # return True
+
+    
+    
     def chat_timer_countdown(self):
         """聊天室倒數計時器"""
         while self.chat_timer_active and self.chat_time_remaining > 0:

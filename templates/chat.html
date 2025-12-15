@@ -359,6 +359,7 @@
       let chatActive = false;
       let userVoted = false;
       let myNickname = null;
+      let hasSentMessage = false;
 
       const chatMessages = document.getElementById('chat-messages');
       const chatInput = document.getElementById('chat-input');
@@ -411,9 +412,22 @@
 
       // 發送訊息
       function sendMessage() {
-        // 二重檢查：如果沒名字，還是要擋住
+        // 1. 檢查是否設定暱稱
         if (!myNickname) {
           showNotification('⚠️ 請先設定暱稱才能發言！', 'warning');
+          return;
+        }
+
+        // 2. ★ 新增：檢查是否已經留過言
+        if (hasSentMessage) {
+          showNotification(
+            '🚫 每回合只能發送一則留言喔！請等待投票結果。',
+            'error'
+          );
+
+          // 給予視覺回饋 (抖動輸入框)
+          chatInput.classList.add('shake');
+          setTimeout(() => chatInput.classList.remove('shake'), 500);
           return;
         }
 
@@ -427,19 +441,18 @@
           showNotification('訊息不能超過50字', 'warning');
           return;
         }
+
         socket.emit('send_message', {
           message,
         });
+
+        // 3. ★ 新增：鎖定狀態並更新 UI
+        hasSentMessage = true;
         chatInput.value = '';
+        chatInput.placeholder = '✅ 已送出留言，等待投票中...';
+        // 也可以選擇讓輸入框變灰，看你喜好
+        // chatInput.disabled = true;
       }
-
-      // 投票
-      window.voteMessage = function (id) {
-        socket.emit('vote_message', {
-          message_id: id,
-        });
-      };
-
       // 添加通知到面板
       function addNotificationToPanel(msg, type = 'info', url = null) {
         console.log('📢 addNotificationToPanel 被呼叫:', { msg, type, url });
@@ -663,6 +676,12 @@
       socket.on('chat_session_started', (d) => {
         chatActive = true;
         userVoted = false;
+
+        // ★ 新增：新回合開始，重置留言狀態
+        hasSentMessage = false;
+        chatInput.placeholder = '輸入您的留言（最多50字）...';
+        chatInput.disabled = false; // 如果你有 disable 的話要解開
+
         chatStatus.textContent = '🎯 投票倒計時開始 - 60 秒內快來投票！';
         const timerEl = document.getElementById('timer-display');
         const timerSeconds = document.getElementById('timer-seconds');
@@ -688,17 +707,17 @@
         console.log('🎯 收到 chat_session_ended 事件:', d);
         chatActive = false;
         userVoted = false;
+        // 這裡不需要重置 hasSentMessage，因為還在結算畫面，等到下一次 start 或 8秒後再重置
 
         document.getElementById('timer-display').style.display = 'none';
 
         if (d.top_message) {
+          // ... (原本的顯示獲勝者邏輯保持不變) ...
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
-
           addNotificationToPanel(
             `🏆 獲勝留言: "${d.top_message.message}" - ${d.top_message.username} (${d.top_message.votes} 票)`,
             'success'
           );
-
           if (myNickname && d.top_message.username === myNickname) {
             console.log('🏆 我是贏家，等待 control_link...');
           }
@@ -706,9 +725,15 @@
           chatStatus.textContent = '💬 主人醒來了！';
         }
 
+        // 8秒後重置畫面
         setTimeout(() => {
           chatMessages.innerHTML = `<div class=\"chat-welcome\"><p>🎯 歡迎來到互動聊天室</p><p>✍️ 您可以隨時留言（每人限一則，最多50字）</p></div>`;
           chatStatus.textContent = '💬 隨時可以留言！';
+
+          // ★ 新增：重置留言狀態，讓使用者感覺「可以準備下一場了」
+          hasSentMessage = false;
+          chatInput.placeholder = '輸入您的留言（最多50字）...';
+          chatInput.disabled = false;
         }, 8000);
       });
 
