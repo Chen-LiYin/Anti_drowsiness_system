@@ -78,7 +78,7 @@ class IntegratedAntiDrowsinessSystem:
         self.notification_sent = False
         self.drowsy_trigger_time = None  # 第一次檢測到瞌睡的時間
         self.alert_trigger_time = None   # 第一次檢測到清醒的時間
-        self.drowsy_threshold = 30  # 瞌睡確認時間（秒）
+        self.drowsy_threshold =15  # 瞌睡確認時間（秒）
         self.alert_threshold = 15   # 清醒確認時間（秒）
         
         # 線程控制
@@ -547,7 +547,7 @@ class IntegratedAntiDrowsinessSystem:
                     self.drowsy_trigger_time = time.time()
                     print(f"⚠️ 偵測到瞌睡跡象 (級別 {alert_level})，開始計時...")
 
-                # 檢查是否持續 30 秒
+                # 檢查是否持續 15 秒
                 elapsed_time = time.time() - self.drowsy_trigger_time
                 if elapsed_time >= self.drowsy_threshold:
                     # 確認瞌睡，開始新的瞌睡會話
