@@ -1089,20 +1089,22 @@ class WebRemoteControl:
 
     def stream_audio(self):
         """後端錄音並推播 (已針對 USB PnP Sound Device ID:2 設定)"""
-        
+
         # ============ 硬體參數設定 ============
         MIC_INDEX = 2          # ★★★ 填入你剛剛查到的 ID
         CHUNK = 1024           # 每次讀取的封包大小
-        FORMAT = pyaudio.paInt16 
+        FORMAT = pyaudio.paInt16
         CHANNELS = 1           # 你的麥克風是單聲道
         RATE = 44100           # 你的麥克風預設採樣率
         # ====================================
 
         p = pyaudio.PyAudio()
-        
+        packet_count = 0  # 用於統計發送的封包數量
+
         try:
             print(f"🎤 嘗試開啟裝置 ID: {MIC_INDEX} (Rate: {RATE})")
-            
+            print(f"🔍 DEBUG: audio_running = {self.audio_running}")
+
             # 開啟音訊串流
             self.audio_stream = p.open(format=FORMAT,
                                      channels=CHANNELS,
@@ -1110,31 +1112,41 @@ class WebRemoteControl:
                                      input=True,
                                      input_device_index=MIC_INDEX, # ★★★ 指定 ID 2
                                      frames_per_buffer=CHUNK)
-            
-            print(f"✅ 樹莓派錄音啟動成功！正在推流中...")
-            
+
+            print(f"✅ 麥克風串流啟動成功！正在推流中...")
+            print(f"🔍 DEBUG: 開始進入 while 循環，audio_running = {self.audio_running}")
+
             while self.audio_running:
                 try:
                     # 讀取數據 (exception_on_overflow=False 防止樹莓派忙碌時崩潰)
                     data = self.audio_stream.read(CHUNK, exception_on_overflow=False)
-                    
+
                     # 轉碼
                     encoded_data = base64.b64encode(data).decode('utf-8')
-                    
+
                     # 發送 (強制廣播給所有網頁)
                     self.socketio.emit('audio_stream', {
                         'data': encoded_data,
                         'rate': RATE,
                         'channels': CHANNELS
                     }, namespace='/', broadcast=True)
-                    
+
+                    packet_count += 1
+
+                    # 每 100 個封包顯示一次狀態
+                    if packet_count % 100 == 0:
+                        print(f"📡 已發送 {packet_count} 個音訊封包 (每包 {CHUNK} 樣本)")
+
                     # 極短暫睡眠釋放 CPU
                     self.socketio.sleep(0.001)
-                    
+
                 except Exception as inner_e:
                     print(f"⚠️ 錄音迴圈錯誤: {inner_e}")
                     continue
-                    
+
+            print(f"🔍 DEBUG: 退出 while 循環，audio_running = {self.audio_running}")
+            print(f"📊 總共發送了 {packet_count} 個音訊封包")
+
         except Exception as e:
             print(f"❌ 無法開啟麥克風 (ID: {MIC_INDEX}): {e}")
             print("💡 請檢查 USB 麥克風是否鬆脫，或嘗試重新插拔")

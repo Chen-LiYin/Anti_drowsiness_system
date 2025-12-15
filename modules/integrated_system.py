@@ -280,16 +280,47 @@ class IntegratedAntiDrowsinessSystem:
         """初始化 TTS 語音引擎"""
         print("🗣️ 初始化 TTS 語音引擎...")
         try:
-            self.tts_engine = pyttsx3.init()
+            # 初始化引擎（使用 espeak）
+            self.tts_engine = pyttsx3.init(driverName='espeak')
 
             # 設定語音屬性
             self.tts_engine.setProperty('rate', 150)  # 語速
             self.tts_engine.setProperty('volume', 0.9)  # 音量
 
+            # 獲取可用的語音並使用第一個
+            voices = self.tts_engine.getProperty('voices')
+            if voices:
+                # 嘗試找中文語音，找不到就用第一個
+                chinese_voice = None
+                for voice in voices:
+                    if 'chinese' in voice.name.lower() or 'zh' in voice.id.lower():
+                        chinese_voice = voice
+                        break
+
+                # 設定語音（如果有中文就用中文，否則用預設）
+                if chinese_voice:
+                    self.tts_engine.setProperty('voice', chinese_voice.id)
+                    print(f"   使用中文語音: {chinese_voice.name}")
+                else:
+                    # 使用第一個可用的語音
+                    self.tts_engine.setProperty('voice', voices[0].id)
+                    print(f"   使用預設語音: {voices[0].name}")
+
             print("✅ TTS 語音引擎初始化成功")
         except Exception as e:
             print(f"❌ TTS 語音引擎初始化失敗: {e}")
-            self.tts_engine = None
+            print("   嘗試備用方案...")
+
+            # 備用方案：使用系統命令播放語音
+            try:
+                import subprocess
+                # 測試 espeak 是否可用
+                subprocess.run(['espeak', '--version'], capture_output=True, check=True)
+                print("✅ 使用 espeak 命令列作為備用 TTS")
+                self.tts_engine = 'espeak_cli'  # 標記使用命令列模式
+            except:
+                print("❌ 無法使用任何 TTS 方案")
+                self.tts_engine = None
 
     def speak_text(self, text):
         """語音播放文字內容（使用背景執行緒避免阻塞）"""
@@ -300,8 +331,18 @@ class IntegratedAntiDrowsinessSystem:
         def speak_thread():
             try:
                 print(f"🗣️ 語音播放: {text}")
-                self.tts_engine.say(text)
-                self.tts_engine.runAndWait()
+
+                # 檢查是使用 pyttsx3 還是命令列模式
+                if self.tts_engine == 'espeak_cli':
+                    # 使用 espeak 命令列
+                    import subprocess
+                    subprocess.run(['espeak', '-v', 'zh', text], check=False)
+                else:
+                    # 使用 pyttsx3
+                    self.tts_engine.say(text)
+                    self.tts_engine.runAndWait()
+
+                print("✅ 語音播放完成")
             except Exception as e:
                 print(f"❌ 語音播放失敗: {e}")
 

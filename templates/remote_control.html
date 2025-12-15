@@ -988,9 +988,29 @@
           }
 
           // ============ Socket 事件監聽 ============
+          let audioPacketCount = 0;
           socket.on('audio_stream', (data) => {
-              // console.log("收到音頻數據..."); // 除錯用，確認有收到資料
-              if (!audioEnabled || !audioContext) return;
+              audioPacketCount++;
+
+              // 每 100 個封包顯示一次
+              if (audioPacketCount % 100 === 0) {
+                  console.log(`📡 已收到 ${audioPacketCount} 個音訊封包`);
+              }
+
+              if (!audioEnabled) {
+                  if (audioPacketCount === 1) {
+                      console.warn('⚠️ audioEnabled = false，無法播放音訊');
+                  }
+                  return;
+              }
+
+              if (!audioContext) {
+                  if (audioPacketCount === 1) {
+                      console.warn('⚠️ audioContext 未初始化');
+                  }
+                  return;
+              }
+
               playAudioData(data.data, data.rate || 44100, data.channels || 1);
           });
 
