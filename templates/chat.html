@@ -204,7 +204,16 @@
         gap: 8px;
         padding: 12px;
         border-top: 1px solid rgba(255, 255, 255, 0.03);
+        transition: all 0.3s ease; /* 加入過渡動畫 */
       }
+
+      /* 新增：鎖定狀態的樣式 */
+      .input-locked {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
       .chat-input {
         flex: 1;
         padding: 10px 12px;
@@ -227,17 +236,44 @@
         color: #aaa;
         font-size: 0.9rem;
       }
+
+      /* 新增：名稱顯示區域 */
+      .nickname-display {
+        margin-top: 8px;
+        color: #fff;
+        font-size: 1.1rem;
+        display: none; /* 預設隱藏 */
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .nickname-tag {
+        background: rgba(0, 212, 255, 0.2);
+        color: #00d4ff;
+        padding: 4px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(0, 212, 255, 0.4);
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
     <div class="chat-sidebar">
-      <!-- 通知面板 -->
       <div class="notification-panel" id="notification-panel"></div>
 
       <div class="chat-panel">
         <div class="chat-header">
           <h3>💬 互動聊天室</h3>
-          <div style="margin-top: 8px; display: flex; gap: 8px">
+
+          <div
+            id="nickname-form"
+            style="
+              margin-top: 8px;
+              display: flex;
+              gap: 8px;
+              justify-content: center;
+            "
+          >
             <input
               id="nickname-input"
               placeholder="輸入暱稱（最多20字）"
@@ -265,6 +301,12 @@
               設定名稱
             </button>
           </div>
+
+          <div id="nickname-display" class="nickname-display">
+            <span>我是：</span>
+            <span id="current-nickname" class="nickname-tag"></span>
+          </div>
+
           <div
             id="timer-display"
             style="margin-top: 8px; color: #f39c12; display: none"
@@ -279,17 +321,15 @@
             <p>🗳️ 大家可以投票給最佳留言</p>
           </div>
         </div>
-        <div class="chat-input-container">
+
+        <div class="chat-input-container input-locked" id="chat-container">
           <input
             id="chat-input"
             class="chat-input"
             maxlength="50"
-            placeholder="輸入您的留言（最多50字）..."
-            disabled
+            placeholder="請先設定暱稱..."
           />
-          <button id="chat-send-btn" class="chat-send-btn" disabled>
-            發送
-          </button>
+          <button id="chat-send-btn" class="chat-send-btn">發送</button>
         </div>
         <div class="chat-status" id="chat-status">
           💬 隨時可以留言！等待主人觸發投票...
@@ -325,6 +365,7 @@
       const chatSendBtn = document.getElementById('chat-send-btn');
       const chatStatus = document.getElementById('chat-status');
       const notificationPanel = document.getElementById('notification-panel');
+      const chatContainer = document.getElementById('chat-container'); // 新增容器參照
 
       // --- 輔助函式區域 ---
 
@@ -370,15 +411,18 @@
 
       // 發送訊息
       function sendMessage() {
+        // 二重檢查：如果沒名字，還是要擋住
+        if (!myNickname) {
+          showNotification('⚠️ 請先設定暱稱才能發言！', 'warning');
+          return;
+        }
+
         const message = chatInput.value.trim();
         if (!message) {
           showNotification('請輸入訊息', 'warning');
           return;
         }
-        if (!myNickname) {
-          showNotification('請先設定暱稱', 'warning');
-          return;
-        }
+
         if (message.length > 50) {
           showNotification('訊息不能超過50字', 'warning');
           return;
@@ -396,7 +440,7 @@
         });
       };
 
-      // 添加通知到面板（用於投票結果和 URL 連結）
+      // 添加通知到面板
       function addNotificationToPanel(msg, type = 'info', url = null) {
         console.log('📢 addNotificationToPanel 被呼叫:', { msg, type, url });
         const item = document.createElement('div');
@@ -414,7 +458,6 @@
           link.className = 'notification-link';
           link.textContent = '開啟';
           item.appendChild(link);
-          console.log('🔗 已添加連結按鈕');
         }
 
         const closeBtn = document.createElement('button');
@@ -430,9 +473,8 @@
 
         notificationPanel.appendChild(item);
         notificationPanel.classList.add('show');
-        console.log('✅ 通知已添加到面板');
 
-        // 自動移除（如果沒有 URL）
+        // 自動移除
         if (!url) {
           setTimeout(() => {
             if (item.parentNode) {
@@ -445,7 +487,7 @@
         }
       }
 
-      // 一般通知 (Toastify) - 支援 URL 連結
+      // 一般通知 (Toastify)
       function showNotification(msg, type = 'info', url = null) {
         const colors = {
           success: 'linear-gradient(90deg, #00b09b, #96c93d)',
@@ -457,7 +499,7 @@
 
         if (window.Toastify) {
           const toastConfig = {
-            duration: url ? 10000 : 4000, // URL 通知顯示更久
+            duration: url ? 10000 : 4000,
             gravity: 'top',
             position: 'right',
             close: true,
@@ -466,7 +508,6 @@
             },
           };
 
-          // 如果有 URL，使用 HTML 模式顯示按鈕
           if (url) {
             toastConfig.text = `
               <div style="display: flex; align-items: center; gap: 12px;">
@@ -483,8 +524,8 @@
                 </a>
               </div>
             `;
-            toastConfig.escapeMarkup = false; // 允許 HTML
-            toastConfig.destination = url; // 點擊整個 toast 也能開啟
+            toastConfig.escapeMarkup = false;
+            toastConfig.destination = url;
             toastConfig.newWindow = true;
           } else {
             toastConfig.text = msg;
@@ -496,15 +537,62 @@
         }
       }
 
-      // 監聽按鈕事件
-      chatSendBtn.addEventListener('click', sendMessage);
+      // --- 防呆機制監聽器 (新增) ---
+
+      function checkNicknameLock(e) {
+        if (!myNickname) {
+          // 阻止預設行為 (例如取得焦點或點擊)
+          e.preventDefault();
+          e.stopPropagation();
+
+          // 讓輸入框失去焦點（避免鍵盤彈出）
+          if (chatInput) chatInput.blur();
+
+          showNotification(
+            '🔒 請先在上方「設定名稱」才能開始留言！',
+            'warning'
+          );
+
+          // 強調一下暱稱輸入框
+          const nickInput = document.getElementById('nickname-input');
+          nickInput.focus();
+          nickInput.style.border = '2px solid #f39c12';
+          setTimeout(() => {
+            nickInput.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+          }, 1000);
+
+          return false;
+        }
+        return true;
+      }
+
+      // 監聽輸入框的點擊和焦點事件
+      chatInput.addEventListener('click', checkNicknameLock);
+      chatInput.addEventListener('focus', checkNicknameLock);
+
+      // 監聽發送按鈕的點擊事件
+      chatSendBtn.addEventListener('click', (e) => {
+        if (checkNicknameLock(e)) {
+          sendMessage();
+        }
+      });
+
+      // 監聽 Enter 鍵 (發送)
       chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') {
+          if (checkNicknameLock(e)) {
+            sendMessage();
+          }
+        }
       });
 
       // 設定暱稱相關
+      const nicknameForm = document.getElementById('nickname-form');
+      const nicknameDisplay = document.getElementById('nickname-display');
+      const currentNicknameSpan = document.getElementById('current-nickname');
       const nicknameInput = document.getElementById('nickname-input');
       const setNicknameBtn = document.getElementById('set-nickname-btn');
+
       setNicknameBtn.addEventListener('click', () => {
         const nick = nicknameInput.value.trim();
         if (!nick) {
@@ -526,10 +614,18 @@
       socket.on('nickname_set', (data) => {
         myNickname = data.nickname;
         showNotification(`已設定暱稱：${myNickname}`, 'success');
+
+        // --- UI 更新邏輯 ---
+
+        // 1. 解鎖輸入區
         chatInput.disabled = false;
-        document.getElementById('chat-send-btn').disabled = false;
-        nicknameInput.disabled = true;
-        setNicknameBtn.disabled = true;
+        chatInput.placeholder = '輸入您的留言（最多50字）...';
+        chatContainer.classList.remove('input-locked'); // 移除半透明和禁止游標
+
+        // 2. 切換 header 顯示
+        nicknameForm.style.display = 'none'; // 隱藏輸入框
+        currentNicknameSpan.textContent = myNickname; // 設定名字
+        nicknameDisplay.style.display = 'flex'; // 顯示名字區塊
       });
 
       socket.on('chat_status', (data) => {
@@ -561,7 +657,6 @@
       socket.on('vote_success', () => {
         userVoted = true;
         showNotification('投票成功！', 'success');
-        // 重新整理列表以移除投票按鈕
         socket.emit('get_chat_status');
       });
 
@@ -573,10 +668,10 @@
         const timerSeconds = document.getElementById('timer-seconds');
         if (timerEl && timerSeconds) {
           timerEl.style.display = 'block';
-          timerSeconds.textContent = d.duration; // 這裡會直接更新成後端傳來的「剩餘秒數」
+          timerSeconds.textContent = d.duration;
         }
         showNotification(d.message, 'success');
-        socket.emit('get_chat_status'); // 確保同步狀態
+        socket.emit('get_chat_status');
       });
 
       socket.on('chat_timer_update', (d) => {
@@ -589,28 +684,21 @@
         chatStatus.textContent = '⏳ 投票已截止 - 等待主人結算...';
       });
 
-      // --- 關鍵修改：獲勝者與控制權邏輯 ---
-
-      // 1. 聊天室結束，公佈結果
       socket.on('chat_session_ended', (d) => {
         console.log('🎯 收到 chat_session_ended 事件:', d);
         chatActive = false;
         userVoted = false;
 
-        // 隱藏倒數計時
         document.getElementById('timer-display').style.display = 'none';
 
         if (d.top_message) {
-          // 在狀態欄顯示結果
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
 
-          // ★★★ 顯示在面板上 ★★★
           addNotificationToPanel(
             `🏆 獲勝留言: "${d.top_message.message}" - ${d.top_message.username} (${d.top_message.votes} 票)`,
             'success'
           );
 
-          // 如果自己是贏家，稍微提示一下 (主要的控制權由 control_link 處理)
           if (myNickname && d.top_message.username === myNickname) {
             console.log('🏆 我是贏家，等待 control_link...');
           }
@@ -618,44 +706,36 @@
           chatStatus.textContent = '💬 主人醒來了！';
         }
 
-        // 5秒後重置畫面
         setTimeout(() => {
           chatMessages.innerHTML = `<div class=\"chat-welcome\"><p>🎯 歡迎來到互動聊天室</p><p>✍️ 您可以隨時留言（每人限一則，最多50字）</p></div>`;
           chatStatus.textContent = '💬 隨時可以留言！';
         }, 8000);
       });
 
-      // 2. 【核心】收到控制連結 (只會發送給贏家)
       socket.on('control_link', (data) => {
         console.log('🏆 收到 control_link 事件:', data);
         if (data && data.url) {
-          // 更新狀態欄的文字連結
           chatStatus.innerHTML = `🏆 恭喜獲勝！ <a href="${data.url}" target="_blank" style="color:#FFD700; font-weight:bold; text-decoration:underline;">點此進入控制介面</a>`;
 
-          // ★★★ 顯示在面板上 ★★★
           addNotificationToPanel(
             '🏆 您獲得控制權！點擊以進入控制介面',
             'success',
             data.url
           );
 
-          // ★★★ 同時也用 Toastify 顯示（從右邊彈出，帶有可點擊的按鈕）★★★
           showNotification('🏆 恭喜獲勝！您已獲得控制權', 'success', data.url);
         }
       });
 
-      // 3. 監控連結 (給其他人看的)
       socket.on('monitor_link', (data) => {
         console.log('🔎 收到 monitor_link 事件:', data);
         if (data && data.url) {
-          // ★★★ 顯示在面板上 ★★★
           addNotificationToPanel(
             '🔎 已收到監控連結（僅觀看）',
             'info',
             data.url
           );
 
-          // ★★★ 同時也用 Toastify 顯示（帶有可點擊的按鈕）★★★
           showNotification('🔎 已收到監控連結（僅觀看）', 'info', data.url);
         }
       });
