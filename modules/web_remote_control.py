@@ -851,7 +851,7 @@ class WebRemoteControl:
 
     # ========== 聊天室管理方法 ==========
 
-    def start_chat_session(self, duration=60):
+    def start_chat_session(self, duration=90):
         """開始聊天會話（瞌睡時觸發）"""
         if self.chat_active:
             print("⚠️ 聊天室已經開啟")
@@ -863,11 +863,11 @@ class WebRemoteControl:
         self.vote_end_time = time.time() + duration # 計算出未來的結束時間點
         self.chat_messages = []
         self.chat_votes = {}
-        self.chat_time_remaining = 60
+        self.chat_time_remaining = 90
         self.chat_timer_active = True
 
         print(f"\n💬 聊天會話開始: {self.chat_session_id}")
-        print("⏱️ 倒數計時器: 60 秒")
+        print("⏱️ 倒數計時器: 90 秒")
 
         # 廣播聊天室開啟事件
         self.socketio.emit('chat_session_started', {
