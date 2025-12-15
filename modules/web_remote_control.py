@@ -87,6 +87,7 @@ class WebRemoteControl:
         self.audio_running = False
 
         # 聊天室系統
+        self.vote_end_time = 0  # 新增：用來記錄「什麼時候」結束
         self.chat_active = False
         self.chat_session_id = None
         self.chat_messages = []  # [{id, user_id, username, message, votes, timestamp}]
@@ -242,7 +243,7 @@ class WebRemoteControl:
             
             join_room('controllers')
             
-            # 發送當前狀態
+            # 1. 發送當前硬體狀態 (雲台、開火冷卻等)
             emit('status_update', {
                 'pan': self.current_pan,
                 'tilt': self.current_tilt,
@@ -250,9 +251,30 @@ class WebRemoteControl:
                 'fire_mode': self.fire_mode,
                 'sound_effect': self.current_sound
             })
+
+            # ==========================================
+            # 2. 【新增】同步聊天室倒數狀態 (解決後進者沒秒數問題)
+            # ==========================================
+            # 檢查是否正在進行聊天室活動
+            if hasattr(self, 'chat_active') and self.chat_active:
+                # 檢查倒數時間是否還沒結束
+                if hasattr(self, 'vote_end_time'):
+                    current_time = time.time()
+                    if self.vote_end_time > current_time:
+                        # 計算剩餘秒數
+                        remaining_seconds = int(self.vote_end_time - current_time)
+                        
+                        if remaining_seconds > 0:
+                            print(f"⏱️ 補發倒數時間給 {client_id}: 剩餘 {remaining_seconds} 秒")
+                            # 單獨發送給這個新連線的人
+                            emit('chat_session_started', {
+                                'duration': remaining_seconds, # 這裡傳的是「剩下的時間」
+                                'message': '⚠️ 投票進行中，請盡快參與！'
+                            })
+            # ==========================================
             
-            # 記錄連接事件
-            if hasattr(self, 'event_recorder'):
+            # 3. 記錄連接事件
+            if hasattr(self, 'event_recorder') and self.event_recorder:
                 self.event_recorder.record_remote_control_start({
                     'ip': client_ip,
                     'user_agent': request.headers.get('User-Agent', ''),
@@ -828,7 +850,7 @@ class WebRemoteControl:
 
     # ========== 聊天室管理方法 ==========
 
-    def start_chat_session(self):
+    def start_chat_session(self, duration=60):
         """開始聊天會話（瞌睡時觸發）"""
         if self.chat_active:
             print("⚠️ 聊天室已經開啟")
@@ -837,6 +859,7 @@ class WebRemoteControl:
         # 生成新的聊天會話 ID
         self.chat_session_id = f"chat_{int(time.time() * 1000)}"
         self.chat_active = True
+        self.vote_end_time = time.time() + duration # 計算出未來的結束時間點
         self.chat_messages = []
         self.chat_votes = {}
         self.chat_time_remaining = 60
@@ -848,7 +871,7 @@ class WebRemoteControl:
         # 廣播聊天室開啟事件
         self.socketio.emit('chat_session_started', {
             'session_id': self.chat_session_id,
-            'duration': 60,
+            'duration': duration,
             'message': '主人睡著了！快來留言吧！'
         }, room='controllers')
 

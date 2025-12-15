@@ -87,7 +87,7 @@ class NotificationSystem:
         """生成遠程控制連結"""
         # 使用實際的本地 IP 地址而不是 0.0.0.0
         base_url = f"http://{self.local_ip}:{self.config.FLASK_PORT}"
-        control_url = f"{base_url}/remote_control?auth={self.config.CONTROL_PASSWORD}"
+        control_url = f"{base_url}/chat"
         return control_url
     
     def format_drowsiness_message(self, drowsiness_result):

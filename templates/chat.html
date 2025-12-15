@@ -573,7 +573,7 @@
         const timerSeconds = document.getElementById('timer-seconds');
         if (timerEl && timerSeconds) {
           timerEl.style.display = 'block';
-          timerSeconds.textContent = d.duration || 60;
+          timerSeconds.textContent = d.duration; // 這裡會直接更新成後端傳來的「剩餘秒數」
         }
         showNotification(d.message, 'success');
         socket.emit('get_chat_status'); // 確保同步狀態
