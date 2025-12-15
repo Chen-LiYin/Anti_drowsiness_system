@@ -454,575 +454,601 @@
     </div>
 
     <script>
-      // SocketIO 連接
-      const socket = io();
-
-      // 控制狀態（直接啟用）
-      let controlActive = true;
-      let panAngle = 90;
-      let tiltAngle = 90;
-      let fireReady = true;
-
-      // 雲台控制設定
-      const panMin = {{ config.pan_min }};
-      const panMax = {{ config.pan_max }};
-      const tiltMin = {{ config.tilt_min }};
-      const tiltMax = {{ config.tilt_max }};
-
-      // 虛擬搖桿類別
-      class VirtualJoystick {
-          constructor(canvas, x, y, outerRadius, innerRadius) {
-              this.canvas = canvas;
-              this.ctx = canvas.getContext('2d');
-              this.baseX = x;
-              this.baseY = y;
-              this.outerRadius = outerRadius;
-              this.innerRadius = innerRadius;
-              this.stickX = x;
-              this.stickY = y;
-              this.isDragging = false;
-              this.outputX = 0;
-              this.outputY = 0;
-          }
-
-          handleTouchStart(touchX, touchY) {
-              const distance = Math.sqrt((touchX - this.baseX) ** 2 + (touchY - this.baseY) ** 2);
-              if (distance <= this.outerRadius) {
-                  this.isDragging = true;
-                  this.updateStickPosition(touchX, touchY);
-                  return true;
-              }
-              return false;
-          }
-
-          handleTouchEnd() {
-              if (this.isDragging) {
-                  this.isDragging = false;
-                  this.stickX = this.baseX;
-                  this.stickY = this.baseY;
-                  this.outputX = 0;
-                  this.outputY = 0;
-                  return true;
-              }
-              return false;
-          }
-
-          handleTouchMove(touchX, touchY) {
-              if (this.isDragging) {
-                  this.updateStickPosition(touchX, touchY);
-                  return true;
-              }
-              return false;
-          }
-
-          updateStickPosition(touchX, touchY) {
-              let dx = touchX - this.baseX;
-              let dy = touchY - this.baseY;
-              const distance = Math.sqrt(dx ** 2 + dy ** 2);
-              const maxDistance = this.outerRadius - this.innerRadius;
-
-              if (distance > maxDistance) {
-                  dx = (dx / distance) * maxDistance;
-                  dy = (dy / distance) * maxDistance;
-              }
-
-              this.stickX = this.baseX + dx;
-              this.stickY = this.baseY + dy;
-              this.outputX = maxDistance > 0 ? dx / maxDistance : 0;
-              this.outputY = maxDistance > 0 ? dy / maxDistance : 0;
-          }
-
-          draw() {
-              // 繪製外圈
-              this.ctx.beginPath();
-              this.ctx.arc(this.baseX, this.baseY, this.outerRadius, 0, Math.PI * 2);
-              this.ctx.fillStyle = 'rgba(50, 50, 50, 0.5)';
-              this.ctx.fill();
-              this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.8)';
-              this.ctx.lineWidth = 2;
-              this.ctx.stroke();
-
-              // 繪製十字線
-              this.ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
-              this.ctx.lineWidth = 1;
-              this.ctx.beginPath();
-              this.ctx.moveTo(this.baseX - this.outerRadius + 10, this.baseY);
-              this.ctx.lineTo(this.baseX + this.outerRadius - 10, this.baseY);
-              this.ctx.moveTo(this.baseX, this.baseY - this.outerRadius + 10);
-              this.ctx.lineTo(this.baseX, this.baseY + this.outerRadius - 10);
-              this.ctx.stroke();
-
-              // 繪製搖桿頭
-              const color = this.isDragging ? 'rgba(100, 200, 255, 0.8)' : 'rgba(150, 150, 150, 0.8)';
-              this.ctx.beginPath();
-              this.ctx.arc(this.stickX, this.stickY, this.innerRadius, 0, Math.PI * 2);
-              this.ctx.fillStyle = color;
-              this.ctx.fill();
-              this.ctx.strokeStyle = 'rgba(200, 200, 200, 0.9)';
-              this.ctx.lineWidth = 2;
-              this.ctx.stroke();
-          }
-
-          getValues() {
-              return { x: this.outputX, y: this.outputY };
-          }
-      }
-
-      // 虛擬射擊按鈕類別
-      class FireButton {
-          constructor(canvas, x, y, radius) {
-              this.canvas = canvas;
-              this.ctx = canvas.getContext('2d');
-              this.x = x;
-              this.y = y;
-              this.radius = radius;
-              this.isPressed = false;
-              this.cooldown = false;
-          }
-
-          handleTouchStart(touchX, touchY) {
-              const distance = Math.sqrt((touchX - this.x) ** 2 + (touchY - this.y) ** 2);
-              if (distance <= this.radius) {
-                  this.isPressed = true;
-                  return true;
-              }
-              return false;
-          }
-
-          handleTouchEnd() {
-              if (this.isPressed) {
-                  this.isPressed = false;
-                  return true;
-              }
-              return false;
-          }
-
-          setCooldown(cooldown) {
-              this.cooldown = cooldown;
-          }
-
-          draw() {
-              let color = this.cooldown ? 'rgba(100, 100, 100, 0.5)' :
-                          this.isPressed ? 'rgba(255, 100, 100, 0.8)' : 'rgba(200, 50, 50, 0.8)';
-
-              this.ctx.beginPath();
-              this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-              this.ctx.fillStyle = color;
-              this.ctx.fill();
-              this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-              this.ctx.lineWidth = 3;
-              this.ctx.stroke();
-
-              // 繪製文字
-              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-              this.ctx.font = 'bold 20px Arial';
-              this.ctx.textAlign = 'center';
-              this.ctx.textBaseline = 'middle';
-              this.ctx.fillText('FIRE', this.x, this.y);
-          }
-      }
-
-      // 初始化虛擬控制器
-      let joystick = null;
-      let fireButton = null;
-      let animationId = null;
-      let updateCanvasSize = null;  // 全局變數，以便在其他地方調用
-
-      function initVirtualControls() {
-          const canvas = document.getElementById('joystick-canvas');
-          const videoContainer = document.getElementById('video-container');
-
-          // 設置 Canvas 尺寸與視訊容器相同
-          updateCanvasSize = () => {
-              const rect = videoContainer.getBoundingClientRect();
-              canvas.width = rect.width;
-              canvas.height = rect.height;
-
-              // 搖桿位置（左下角）
-              const joystickX = 80;
-              const joystickY = canvas.height - 80;
-
-              // 射擊按鈕位置（右下角）
-              const fireButtonX = canvas.width - 80;
-              const fireButtonY = canvas.height - 80;
-
-              if (joystick && fireButton) {
-                  // 更新現有控制器的位置
-                  joystick.baseX = joystickX;
-                  joystick.baseY = joystickY;
-                  joystick.stickX = joystickX;
-                  joystick.stickY = joystickY;
-                  fireButton.x = fireButtonX;
-                  fireButton.y = fireButtonY;
-              } else {
-                  // 首次創建控制器
-                  joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
-                  fireButton = new FireButton(canvas, fireButtonX, fireButtonY, 40);
-              }
-          };
-
-          updateCanvasSize();
-
-          // 觸控/滑鼠事件處理
-          const getTouchPos = (e) => {
-              const rect = canvas.getBoundingClientRect();
-              const touch = e.touches ? e.touches[0] : e;
-              return {
-                  x: touch.clientX - rect.left,
-                  y: touch.clientY - rect.top
-              };
-          };
-
-          canvas.addEventListener('mousedown', (e) => {
-              const pos = getTouchPos(e);
-              joystick.handleTouchStart(pos.x, pos.y);
-              if (fireButton.handleTouchStart(pos.x, pos.y)) {
-                  handleFire();
-              }
-          });
-
-          canvas.addEventListener('mousemove', (e) => {
-              const pos = getTouchPos(e);
-              joystick.handleTouchMove(pos.x, pos.y);
-          });
-
-          canvas.addEventListener('mouseup', () => {
-              joystick.handleTouchEnd();
-              fireButton.handleTouchEnd();
-          });
-
-          canvas.addEventListener('touchstart', (e) => {
-              e.preventDefault();
-              const pos = getTouchPos(e);
-              joystick.handleTouchStart(pos.x, pos.y);
-              if (fireButton.handleTouchStart(pos.x, pos.y)) {
-                  handleFire();
-              }
-          });
-
-          canvas.addEventListener('touchmove', (e) => {
-              e.preventDefault();
-              const pos = getTouchPos(e);
-              joystick.handleTouchMove(pos.x, pos.y);
-          });
-
-          canvas.addEventListener('touchend', () => {
-              joystick.handleTouchEnd();
-              fireButton.handleTouchEnd();
-          });
-
-          // 開始繪製循環
-          drawControls();
-      }
-
-      function drawControls() {
-          const canvas = document.getElementById('joystick-canvas');
-          if (!canvas) {
-              animationId = requestAnimationFrame(drawControls);
-              return;
-          }
-
-          const ctx = canvas.getContext('2d');
-
-          // 清空畫布
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          // 繪製搖桿和按鈕
-          if (joystick && fireButton) {
-              // 繪製左下角搖桿區域背景
-              ctx.fillStyle = 'transparent';
-              ctx.fillRect(0, canvas.height - 180, 180, 180);
-
-              // 繪製右下角按鈕區域背景
-              ctx.fillRect(canvas.width - 180, canvas.height - 180, 180, 180);
-
-              // 繪製搖桿和按鈕
-              joystick.draw();
-              fireButton.draw();
-
-              // 根據搖桿控制雲台
-              if (joystick.isDragging) {
-                  const values = joystick.getValues();
-                  panAngle = (panMin + panMax) / 2 + values.x * (panMax - panMin) / 2;
-                  tiltAngle = (tiltMin + tiltMax) / 2 + values.y * (tiltMax - tiltMin) / 2;
-
-                  panAngle = Math.max(panMin, Math.min(panMax, panAngle));
-                  tiltAngle = Math.max(tiltMin, Math.min(tiltMax, tiltAngle));
-
-                  socket.emit('pan_control', { angle: panAngle });
-                  socket.emit('tilt_control', { angle: tiltAngle });
-                  updatePositionDisplay();
-              }
-          }
-
-          animationId = requestAnimationFrame(drawControls);
-      }
-
-      function handleFire() {
-          if (!fireReady) return;
-
-          const mode = 'single';
-          const sound = document.getElementById('sound-effect').value;
-          socket.emit('fire_control', { mode, sound });
-      }
-
-      // 頁面載入後初始化
-      window.addEventListener('load', () => {
-          initVirtualControls();
-      });
-
-      // 窗口大小改變時重新調整 Canvas
-      window.addEventListener('resize', () => {
-          const canvas = document.getElementById('joystick-canvas');
-          const videoContainer = document.getElementById('video-container');
-
-          if (canvas && videoContainer) {
-              const rect = videoContainer.getBoundingClientRect();
-              canvas.width = rect.width;
-              canvas.height = rect.height;
-
-              // 更新搖桿和按鈕位置（左下角和右下角）
-              if (joystick && fireButton) {
-                  joystick.baseX = 80;
-                  joystick.baseY = canvas.height - 80;
-                  joystick.stickX = 80;
-                  joystick.stickY = canvas.height - 80;
-                  fireButton.x = canvas.width - 80;
-                  fireButton.y = canvas.height - 80;
-              }
-          }
-      });
-
-      // SocketIO 事件處理
-      socket.on('connect', () => {
-          updateConnectionStatus('control-active', '控制中');
-
-          // ★★★ 檢查 URL 中是否有 token 參數（獲勝者連結）★★★
-          const urlParams = new URLSearchParams(window.location.search);
-          const token = urlParams.get('token');
-
-          if (token) {
-              // 使用一次性 token 獲取控制權（會強制撤銷舊控制者）
-              console.log('🎫 檢測到 token，使用 claim_token 獲取控制權');
-              socket.emit('claim_token', { token: token });
-          } else {
-              // 一般控制權請求
-              socket.emit('control_start');
-          }
-      });
-
-      socket.on('disconnect', () => {
-          updateConnectionStatus('disconnected', '連接斷開');
-      });
-
-      socket.on('control_granted', (data) => {
-          // 控制權已授予（靜默處理，無需通知）
-          controlActive = true;
-      });
-
-      socket.on('emergency_control_available', (data) => {
-          // 緊急控制模式通知
-          showNotification('🚨 ' + data.message, 'error');
-      });
-
-      socket.on('position_update', (data) => {
-          panAngle = data.pan;
-          tiltAngle = data.tilt;
-          updatePositionDisplay();
-      });
-
-      socket.on('fire_success', (data) => {
-          showNotification('🎯 射擊成功！', 'success');
-          // 設置射擊冷卻
-          fireReady = false;
-          if (fireButton) {
-              fireButton.setCooldown(true);
-          }
-          // 0.5 秒後恢復
-          setTimeout(() => {
-              fireReady = true;
-              if (fireButton) {
-                  fireButton.setCooldown(false);
-              }
-          }, 500);
-      });
-
-      socket.on('fire_denied', (data) => {
-          showNotification('🚫 ' + data.message, 'warning');
-      });
-
-      socket.on('fire_error', (data) => {
-          showNotification('❌ ' + data.message, 'error');
-      });
-
-      socket.on('status_update', (data) => {
-          fireReady = data.fire_ready;
-          updateFireButton();
-      });
-
-      // UI 更新函數
-      function updateConnectionStatus(status, text) {
-          const statusEl = document.getElementById('connection-status');
-          statusEl.className = 'connection-status ' + status;
-          statusEl.textContent = text;
-      }
-
-      function updatePositionDisplay() {
-          document.getElementById('position-display').textContent =
-              `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
-      }
-
-      function updateFireButton() {
-          const button = document.getElementById('fire-button');
-          const cooldown = document.getElementById('fire-cooldown');
-
-          if (fireReady) {
-              button.disabled = false;
-              cooldown.style.display = 'none';
-          } else {
-              button.disabled = true;
-              cooldown.style.display = 'flex';
-          }
-      }
-
-      function showNotification(message, type = 'info') {
-          const notification = document.getElementById('notification');
-          notification.textContent = message;
-          notification.className = `notification ${type}`;
-
-          // 顯示通知
-          setTimeout(() => notification.classList.add('show'), 100);
-
-          // 3秒後隱藏
-          setTimeout(() => {
-              notification.classList.remove('show');
-          }, 3000);
-      }
-
-      // 按鈕事件
-      document.getElementById('fire-button').addEventListener('click', () => {
-          if (!fireReady) return;
-
-          const mode = 'single';  // 預設射擊模式
-          const sound = document.getElementById('sound-effect').value;
-
-          socket.emit('fire_control', { mode, sound });
-      });
-
-      document.getElementById('sound-effect').addEventListener('change', (e) => {
-          socket.emit('sound_change', { sound: e.target.value });
-      });
-
-      document.getElementById('stop-all').addEventListener('click', () => {
-          socket.emit('control_end');
-          showNotification('🛑 已停止所有動作', 'info');
-      });
-
-      document.getElementById('center-turret').addEventListener('click', () => {
-          socket.emit('pan_control', { angle: 90 });
-          socket.emit('tilt_control', { angle: 90 });
-          showNotification('🎯 雲台已回中心', 'info');
-      });
-
-      // 視訊串流錯誤處理
-      document.getElementById('video-stream').addEventListener('error', () => {
-          document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
-      });
-
-      document.getElementById('video-stream').addEventListener('load', () => {
-          document.getElementById('stream-info').textContent = '即時串流中';
-      });
-
-      // ============ 音頻串流功能 ============
-      let audioContext = null;
-      let audioEnabled = false;
-      let audioQueue = [];
-      let isProcessingAudio = false;
-
-      // 初始化 AudioContext
-      function initAudioContext() {
-          if (!audioContext) {
-              audioContext = new (window.AudioContext || window.webkitAudioContext)();
-              console.log('🎤 AudioContext 已初始化');
-          }
-          return audioContext;
-      }
-
-      // 播放音頻數據
-      function playAudioData(base64Data, sampleRate, channels) {
-          try {
-              // 解碼 base64
-              const binaryString = atob(base64Data);
-              const bytes = new Uint8Array(binaryString.length);
-              for (let i = 0; i < binaryString.length; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-              }
-
-              // 轉換為 Int16Array（PCM 16-bit）
-              const int16Array = new Int16Array(bytes.buffer);
-
-              // 轉換為 Float32Array（AudioContext 需要）
-              const float32Array = new Float32Array(int16Array.length);
-              for (let i = 0; i < int16Array.length; i++) {
-                  float32Array[i] = int16Array[i] / 32768.0;
-              }
-
-              // 創建 AudioBuffer
-              const audioBuffer = audioContext.createBuffer(channels, float32Array.length, sampleRate);
-              audioBuffer.getChannelData(0).set(float32Array);
-
-              // 播放
-              const source = audioContext.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(audioContext.destination);
-              source.start(0);
-
-          } catch (e) {
-              console.error('音頻播放錯誤:', e);
-          }
-      }
-
-      // 接收音頻串流
-      socket.on('audio_stream', (data) => {
-          if (!audioEnabled) return;
-
-          try {
-              playAudioData(data.data, data.rate, data.channels);
-          } catch (e) {
-              console.error('音頻處理錯誤:', e);
-          }
-      });
-
-      // 音頻狀態回應
-      socket.on('audio_status', (data) => {
-          console.log('音頻狀態更新:', data);
-          if (data.enabled) {
-              audioEnabled = true;
-              document.getElementById('audio-toggle').style.background = '#f44336';
-              document.getElementById('audio-toggle').textContent = '🔇 停用音頻';
-          } else {
-              audioEnabled = false;
-              document.getElementById('audio-toggle').style.background = '#4CAF50';
-              document.getElementById('audio-toggle').textContent = '🔊 啟用音頻';
-          }
-          showNotification(data.message, data.enabled ? 'success' : 'info');
-      });
-
-      // 音頻切換按鈕
-      document.getElementById('audio-toggle').addEventListener('click', function() {
-          const enable = !audioEnabled;
-
-          if (enable) {
-              // 初始化 AudioContext（必須在用戶交互時初始化）
-              initAudioContext();
-              // 發送啟用請求到後端
-              socket.emit('audio_enable', { enable: true });
-              showNotification('🎤 正在啟動音頻串流...', 'info');
-          } else {
-              // 發送停用請求到後端
-              socket.emit('audio_enable', { enable: false });
-          }
-      });
+       // SocketIO 連接
+       const socket = io();
+
+       // 控制狀態（直接啟用）
+       let controlActive = true;
+       let panAngle = 90;
+       let tiltAngle = 90;
+       let fireReady = true;
+
+       // 雲台控制設定
+       const panMin = {{ config.pan_min }};
+       const panMax = {{ config.pan_max }};
+       const tiltMin = {{ config.tilt_min }};
+       const tiltMax = {{ config.tilt_max }};
+
+       // 虛擬搖桿類別
+       class VirtualJoystick {
+           constructor(canvas, x, y, outerRadius, innerRadius) {
+               this.canvas = canvas;
+               this.ctx = canvas.getContext('2d');
+               this.baseX = x;
+               this.baseY = y;
+               this.outerRadius = outerRadius;
+               this.innerRadius = innerRadius;
+               this.stickX = x;
+               this.stickY = y;
+               this.isDragging = false;
+               this.outputX = 0;
+               this.outputY = 0;
+           }
+
+           handleTouchStart(touchX, touchY) {
+               const distance = Math.sqrt((touchX - this.baseX) ** 2 + (touchY - this.baseY) ** 2);
+               if (distance <= this.outerRadius) {
+                   this.isDragging = true;
+                   this.updateStickPosition(touchX, touchY);
+                   return true;
+               }
+               return false;
+           }
+
+           handleTouchEnd() {
+               if (this.isDragging) {
+                   this.isDragging = false;
+                   this.stickX = this.baseX;
+                   this.stickY = this.baseY;
+                   this.outputX = 0;
+                   this.outputY = 0;
+                   return true;
+               }
+               return false;
+           }
+
+           handleTouchMove(touchX, touchY) {
+               if (this.isDragging) {
+                   this.updateStickPosition(touchX, touchY);
+                   return true;
+               }
+               return false;
+           }
+
+           updateStickPosition(touchX, touchY) {
+               let dx = touchX - this.baseX;
+               let dy = touchY - this.baseY;
+               const distance = Math.sqrt(dx ** 2 + dy ** 2);
+               const maxDistance = this.outerRadius - this.innerRadius;
+
+               if (distance > maxDistance) {
+                   dx = (dx / distance) * maxDistance;
+                   dy = (dy / distance) * maxDistance;
+               }
+
+               this.stickX = this.baseX + dx;
+               this.stickY = this.baseY + dy;
+               this.outputX = maxDistance > 0 ? dx / maxDistance : 0;
+               this.outputY = maxDistance > 0 ? dy / maxDistance : 0;
+           }
+
+           draw() {
+               // 繪製外圈
+               this.ctx.beginPath();
+               this.ctx.arc(this.baseX, this.baseY, this.outerRadius, 0, Math.PI * 2);
+               this.ctx.fillStyle = 'rgba(50, 50, 50, 0.5)';
+               this.ctx.fill();
+               this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.8)';
+               this.ctx.lineWidth = 2;
+               this.ctx.stroke();
+
+               // 繪製十字線
+               this.ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
+               this.ctx.lineWidth = 1;
+               this.ctx.beginPath();
+               this.ctx.moveTo(this.baseX - this.outerRadius + 10, this.baseY);
+               this.ctx.lineTo(this.baseX + this.outerRadius - 10, this.baseY);
+               this.ctx.moveTo(this.baseX, this.baseY - this.outerRadius + 10);
+               this.ctx.lineTo(this.baseX, this.baseY + this.outerRadius - 10);
+               this.ctx.stroke();
+
+               // 繪製搖桿頭
+               const color = this.isDragging ? 'rgba(100, 200, 255, 0.8)' : 'rgba(150, 150, 150, 0.8)';
+               this.ctx.beginPath();
+               this.ctx.arc(this.stickX, this.stickY, this.innerRadius, 0, Math.PI * 2);
+               this.ctx.fillStyle = color;
+               this.ctx.fill();
+               this.ctx.strokeStyle = 'rgba(200, 200, 200, 0.9)';
+               this.ctx.lineWidth = 2;
+               this.ctx.stroke();
+           }
+
+           getValues() {
+               return { x: this.outputX, y: this.outputY };
+           }
+       }
+
+       // 虛擬射擊按鈕類別
+       class FireButton {
+           constructor(canvas, x, y, radius) {
+               this.canvas = canvas;
+               this.ctx = canvas.getContext('2d');
+               this.x = x;
+               this.y = y;
+               this.radius = radius;
+               this.isPressed = false;
+               this.cooldown = false;
+           }
+
+           handleTouchStart(touchX, touchY) {
+               const distance = Math.sqrt((touchX - this.x) ** 2 + (touchY - this.y) ** 2);
+               if (distance <= this.radius) {
+                   this.isPressed = true;
+                   return true;
+               }
+               return false;
+           }
+
+           handleTouchEnd() {
+               if (this.isPressed) {
+                   this.isPressed = false;
+                   return true;
+               }
+               return false;
+           }
+
+           setCooldown(cooldown) {
+               this.cooldown = cooldown;
+           }
+
+           draw() {
+               let color = this.cooldown ? 'rgba(100, 100, 100, 0.5)' :
+                           this.isPressed ? 'rgba(255, 100, 100, 0.8)' : 'rgba(200, 50, 50, 0.8)';
+
+               this.ctx.beginPath();
+               this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+               this.ctx.fillStyle = color;
+               this.ctx.fill();
+               this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+               this.ctx.lineWidth = 3;
+               this.ctx.stroke();
+
+               // 繪製文字
+               this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+               this.ctx.font = 'bold 20px Arial';
+               this.ctx.textAlign = 'center';
+               this.ctx.textBaseline = 'middle';
+               this.ctx.fillText('FIRE', this.x, this.y);
+           }
+       }
+
+       // 初始化虛擬控制器
+       let joystick = null;
+       let fireButton = null;
+       let animationId = null;
+       let updateCanvasSize = null;  // 全局變數，以便在其他地方調用
+
+       function initVirtualControls() {
+           const canvas = document.getElementById('joystick-canvas');
+           const videoContainer = document.getElementById('video-container');
+
+           // 設置 Canvas 尺寸與視訊容器相同
+           updateCanvasSize = () => {
+               const rect = videoContainer.getBoundingClientRect();
+               canvas.width = rect.width;
+               canvas.height = rect.height;
+
+               // 搖桿位置（左下角）
+               const joystickX = 80;
+               const joystickY = canvas.height - 80;
+
+               // 射擊按鈕位置（右下角）
+               const fireButtonX = canvas.width - 80;
+               const fireButtonY = canvas.height - 80;
+
+               if (joystick && fireButton) {
+                   // 更新現有控制器的位置
+                   joystick.baseX = joystickX;
+                   joystick.baseY = joystickY;
+                   joystick.stickX = joystickX;
+                   joystick.stickY = joystickY;
+                   fireButton.x = fireButtonX;
+                   fireButton.y = fireButtonY;
+               } else {
+                   // 首次創建控制器
+                   joystick = new VirtualJoystick(canvas, joystickX, joystickY, 60, 25);
+                   fireButton = new FireButton(canvas, fireButtonX, fireButtonY, 40);
+               }
+           };
+
+           updateCanvasSize();
+
+           // 觸控/滑鼠事件處理
+           const getTouchPos = (e) => {
+               const rect = canvas.getBoundingClientRect();
+               const touch = e.touches ? e.touches[0] : e;
+               return {
+                   x: touch.clientX - rect.left,
+                   y: touch.clientY - rect.top
+               };
+           };
+
+           canvas.addEventListener('mousedown', (e) => {
+               const pos = getTouchPos(e);
+               joystick.handleTouchStart(pos.x, pos.y);
+               if (fireButton.handleTouchStart(pos.x, pos.y)) {
+                   handleFire();
+               }
+           });
+
+           canvas.addEventListener('mousemove', (e) => {
+               const pos = getTouchPos(e);
+               joystick.handleTouchMove(pos.x, pos.y);
+           });
+
+           canvas.addEventListener('mouseup', () => {
+               joystick.handleTouchEnd();
+               fireButton.handleTouchEnd();
+           });
+
+           canvas.addEventListener('touchstart', (e) => {
+               e.preventDefault();
+               const pos = getTouchPos(e);
+               joystick.handleTouchStart(pos.x, pos.y);
+               if (fireButton.handleTouchStart(pos.x, pos.y)) {
+                   handleFire();
+               }
+           });
+
+           canvas.addEventListener('touchmove', (e) => {
+               e.preventDefault();
+               const pos = getTouchPos(e);
+               joystick.handleTouchMove(pos.x, pos.y);
+           });
+
+           canvas.addEventListener('touchend', () => {
+               joystick.handleTouchEnd();
+               fireButton.handleTouchEnd();
+           });
+
+           // 開始繪製循環
+           drawControls();
+       }
+
+       function drawControls() {
+           const canvas = document.getElementById('joystick-canvas');
+           if (!canvas) {
+               animationId = requestAnimationFrame(drawControls);
+               return;
+           }
+
+           const ctx = canvas.getContext('2d');
+
+           // 清空畫布
+           ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+           // 繪製搖桿和按鈕
+           if (joystick && fireButton) {
+               // 繪製左下角搖桿區域背景
+               ctx.fillStyle = 'transparent';
+               ctx.fillRect(0, canvas.height - 180, 180, 180);
+
+               // 繪製右下角按鈕區域背景
+               ctx.fillRect(canvas.width - 180, canvas.height - 180, 180, 180);
+
+               // 繪製搖桿和按鈕
+               joystick.draw();
+               fireButton.draw();
+
+               // 根據搖桿控制雲台
+               if (joystick.isDragging) {
+                   const values = joystick.getValues();
+                   panAngle = (panMin + panMax) / 2 + values.x * (panMax - panMin) / 2;
+                   tiltAngle = (tiltMin + tiltMax) / 2 + values.y * (tiltMax - tiltMin) / 2;
+
+                   panAngle = Math.max(panMin, Math.min(panMax, panAngle));
+                   tiltAngle = Math.max(tiltMin, Math.min(tiltMax, tiltAngle));
+
+                   socket.emit('pan_control', { angle: panAngle });
+                   socket.emit('tilt_control', { angle: tiltAngle });
+                   updatePositionDisplay();
+               }
+           }
+
+           animationId = requestAnimationFrame(drawControls);
+       }
+
+       function handleFire() {
+           if (!fireReady) return;
+
+           const mode = 'single';
+           const sound = document.getElementById('sound-effect').value;
+           socket.emit('fire_control', { mode, sound });
+       }
+
+       // 頁面載入後初始化
+       window.addEventListener('load', () => {
+           initVirtualControls();
+       });
+
+       // 窗口大小改變時重新調整 Canvas
+       window.addEventListener('resize', () => {
+           const canvas = document.getElementById('joystick-canvas');
+           const videoContainer = document.getElementById('video-container');
+
+           if (canvas && videoContainer) {
+               const rect = videoContainer.getBoundingClientRect();
+               canvas.width = rect.width;
+               canvas.height = rect.height;
+
+               // 更新搖桿和按鈕位置（左下角和右下角）
+               if (joystick && fireButton) {
+                   joystick.baseX = 80;
+                   joystick.baseY = canvas.height - 80;
+                   joystick.stickX = 80;
+                   joystick.stickY = canvas.height - 80;
+                   fireButton.x = canvas.width - 80;
+                   fireButton.y = canvas.height - 80;
+               }
+           }
+       });
+
+       // SocketIO 事件處理
+       socket.on('connect', () => {
+           updateConnectionStatus('control-active', '控制中');
+
+           // ★★★ 檢查 URL 中是否有 token 參數（獲勝者連結）★★★
+           const urlParams = new URLSearchParams(window.location.search);
+           const token = urlParams.get('token');
+
+           if (token) {
+               // 使用一次性 token 獲取控制權（會強制撤銷舊控制者）
+               console.log('🎫 檢測到 token，使用 claim_token 獲取控制權');
+               socket.emit('claim_token', { token: token });
+           } else {
+               // 一般控制權請求
+               socket.emit('control_start');
+           }
+       });
+
+       socket.on('disconnect', () => {
+           updateConnectionStatus('disconnected', '連接斷開');
+       });
+
+       socket.on('control_granted', (data) => {
+           // 控制權已授予（靜默處理，無需通知）
+           controlActive = true;
+       });
+
+       socket.on('emergency_control_available', (data) => {
+           // 緊急控制模式通知
+           showNotification('🚨 ' + data.message, 'error');
+       });
+
+       socket.on('position_update', (data) => {
+           panAngle = data.pan;
+           tiltAngle = data.tilt;
+           updatePositionDisplay();
+       });
+
+       socket.on('fire_success', (data) => {
+           showNotification('🎯 射擊成功！', 'success');
+           // 設置射擊冷卻
+           fireReady = false;
+           if (fireButton) {
+               fireButton.setCooldown(true);
+           }
+           // 0.5 秒後恢復
+           setTimeout(() => {
+               fireReady = true;
+               if (fireButton) {
+                   fireButton.setCooldown(false);
+               }
+           }, 500);
+       });
+
+       socket.on('fire_denied', (data) => {
+           showNotification('🚫 ' + data.message, 'warning');
+       });
+
+       socket.on('fire_error', (data) => {
+           showNotification('❌ ' + data.message, 'error');
+       });
+
+       socket.on('status_update', (data) => {
+           fireReady = data.fire_ready;
+           updateFireButton();
+       });
+
+       // UI 更新函數
+       function updateConnectionStatus(status, text) {
+           const statusEl = document.getElementById('connection-status');
+           statusEl.className = 'connection-status ' + status;
+           statusEl.textContent = text;
+       }
+
+       function updatePositionDisplay() {
+           document.getElementById('position-display').textContent =
+               `Pan: ${panAngle.toFixed(0)}° | Tilt: ${tiltAngle.toFixed(0)}°`;
+       }
+
+       function updateFireButton() {
+           const button = document.getElementById('fire-button');
+           const cooldown = document.getElementById('fire-cooldown');
+
+           if (fireReady) {
+               button.disabled = false;
+               cooldown.style.display = 'none';
+           } else {
+               button.disabled = true;
+               cooldown.style.display = 'flex';
+           }
+       }
+
+       function showNotification(message, type = 'info') {
+           const notification = document.getElementById('notification');
+           notification.textContent = message;
+           notification.className = `notification ${type}`;
+
+           // 顯示通知
+           setTimeout(() => notification.classList.add('show'), 100);
+
+           // 3秒後隱藏
+           setTimeout(() => {
+               notification.classList.remove('show');
+           }, 3000);
+       }
+
+       // 按鈕事件
+       document.getElementById('fire-button').addEventListener('click', () => {
+           if (!fireReady) return;
+
+           const mode = 'single';  // 預設射擊模式
+           const sound = document.getElementById('sound-effect').value;
+
+           socket.emit('fire_control', { mode, sound });
+       });
+
+       document.getElementById('sound-effect').addEventListener('change', (e) => {
+           socket.emit('sound_change', { sound: e.target.value });
+       });
+
+       document.getElementById('stop-all').addEventListener('click', () => {
+           socket.emit('control_end');
+           showNotification('🛑 已停止所有動作', 'info');
+       });
+
+       document.getElementById('center-turret').addEventListener('click', () => {
+           socket.emit('pan_control', { angle: 90 });
+           socket.emit('tilt_control', { angle: 90 });
+           showNotification('🎯 雲台已回中心', 'info');
+       });
+
+       // 視訊串流錯誤處理
+       document.getElementById('video-stream').addEventListener('error', () => {
+           document.getElementById('stream-info').textContent = '視訊串流暫時不可用';
+       });
+
+       document.getElementById('video-stream').addEventListener('load', () => {
+           document.getElementById('stream-info').textContent = '即時串流中';
+       });
+
+      // ============ 音頻串流功能優化版 ============
+       let audioContext = null;
+       let audioEnabled = false;
+       let nextTime = 0; // 【關鍵】用來記錄下一段聲音該從何時開始播
+
+       // 初始化 AudioContext
+       function initAudioContext() {
+           if (!audioContext) {
+               audioContext = new (window.AudioContext || window.webkitAudioContext)();
+               console.log('🎤 AudioContext 已建立');
+           } else if (audioContext.state === 'suspended') {
+               audioContext.resume(); // Chrome 常常會暫停它，必須手動喚醒
+           }
+           return audioContext;
+       }
+
+       // 播放音頻數據 (加入排程邏輯)
+       function playAudioData(base64Data, sampleRate, channels) {
+           if (!audioContext) return;
+
+           try {
+               // 1. 解碼 Base64
+               const binaryString = atob(base64Data);
+               const len = binaryString.length;
+               const bytes = new Uint8Array(len);
+               for (let i = 0; i < len; i++) {
+                   bytes[i] = binaryString.charCodeAt(i);
+               }
+
+               // 2. 轉換 PCM (16-bit Int -> Float32)
+               const int16Array = new Int16Array(bytes.buffer);
+               const float32Array = new Float32Array(int16Array.length);
+
+               // 正規化：將 -32768~32767 轉為 -1.0~1.0
+               for (let i = 0; i < int16Array.length; i++) {
+                   float32Array[i] = int16Array[i] / 32768.0;
+               }
+
+               // 3. 創建 Buffer
+               const audioBuffer = audioContext.createBuffer(channels, float32Array.length, sampleRate);
+               audioBuffer.getChannelData(0).set(float32Array);
+
+               // 4. 建立音源
+               const source = audioContext.createBufferSource();
+               source.buffer = audioBuffer;
+               source.connect(audioContext.destination);
+
+               // 5. 【關鍵修正】時間排程
+               // 如果 nextTime 落後於當前時間（代表斷訊或剛開始），重置為當前時間
+               if (nextTime < audioContext.currentTime) {
+                   nextTime = audioContext.currentTime;
+               }
+
+               source.start(nextTime);
+
+               // 下一段聲音的開始時間 = 當前結束時間
+               nextTime += audioBuffer.duration;
+
+           } catch (e) {
+               console.error('音頻解碼播放錯誤:', e);
+           }
+       }
+
+       // 接收音頻串流
+       socket.on('audio_stream', (data) => {
+           // 確保 audioEnabled 為真且 Context 存在才播放
+           if (!audioEnabled || !audioContext) return;
+
+           // 如果後端沒傳 rate，給個預設值 44100
+           const rate = data.rate || 44100;
+           const channels = data.channels || 1;
+
+           playAudioData(data.data, rate, channels);
+       });
+
+       // 音頻狀態回應 (UI更新)
+       socket.on('audio_status', (data) => {
+           console.log('音頻狀態更新:', data);
+           const btn = document.getElementById('audio-toggle');
+
+           if (data.enabled) {
+               audioEnabled = true;
+               btn.style.background = '#f44336';
+               btn.textContent = '🔇 停用音頻';
+               showNotification(data.message, 'success');
+           } else {
+               audioEnabled = false;
+               btn.style.background = '#4CAF50';
+               btn.textContent = '🔊 啟用音頻';
+               showNotification(data.message, 'info');
+
+               // 關閉時重置時間
+               nextTime = 0;
+           }
+       });
+
+       // 音頻切換按鈕事件
+       const audioBtn = document.getElementById('audio-toggle');
+       if (audioBtn) {
+           audioBtn.addEventListener('click', function() {
+               // 1. 狀態反轉前置判斷
+               const requestEnable = !audioEnabled;
+
+               if (requestEnable) {
+                   // 瀏覽器規定：AudioContext 必須在 click 事件內被喚醒
+                   initAudioContext();
+                   console.log("正在請求啟用音頻...");
+                   socket.emit('audio_enable', { enable: true });
+               } else {
+                   console.log("正在請求停用音頻...");
+                   socket.emit('audio_enable', { enable: false });
+               }
+           });
+       } else {
+           console.error("錯誤：找不到 id 為 audio-toggle 的按鈕");
+       }
     </script>
   </body>
 </html>

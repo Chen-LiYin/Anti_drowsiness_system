@@ -962,14 +962,6 @@ class WebRemoteControl:
         # 監控連結 (給輸家)
         monitor_url = f"http://{local_ip}:{self.config.FLASK_PORT}/monitor?auth={self.config.CONTROL_PASSWORD}"
 
-        # --- 3. Telegram 通知 (不管是線上或離線都建議留紀錄) ---
-        if self.notification_system:
-            try:
-                notif_message = f"恭喜 {winner_nickname}！您的留言獲得最高票 ({top_message['votes']}票)，獲得控制權。\n控制連結：{control_url}"
-                # 這裡傳入 control_url 讓 telegram bot 也能按鈕
-                self.notification_system.send_telegram_notification(notif_message, control_url=control_url)
-            except Exception as e:
-                print(f"⚠️ Telegram 通知發送失敗: {e}")
 
         # --- 4. 判斷獲勝者是否在線 ---
         is_winner_online = winner_user_id in self.connected_clients
@@ -1069,49 +1061,44 @@ class WebRemoteControl:
         print("🎤 音頻串流已停止")
 
     def stream_audio(self):
-        """音頻串流線程"""
+        """後端錄音並推播"""
+        CHUNK = 1024
+        FORMAT = pyaudio.paInt16
+        CHANNELS = 1
+        RATE = 44100
+
+        p = pyaudio.PyAudio()
+
         try:
-            # 音頻參數
-            CHUNK = 1024
-            FORMAT = pyaudio.paInt16
-            CHANNELS = 1
-            RATE = 16000
+            # 確保這裡 input_device_index 設定正確，或乾脆不寫讓它抓預設
+            self.audio_stream = p.open(format=FORMAT,
+                                      channels=CHANNELS,
+                                      rate=RATE,
+                                      input=True,
+                                      frames_per_buffer=CHUNK)
 
-            # 初始化 PyAudio
-            p = pyaudio.PyAudio()
-
-            # 開啟音頻串流
-            self.audio_stream = p.open(
-                format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK
-            )
-
-            print(f"🎤 麥克風已開啟 (採樣率: {RATE}Hz, 通道: {CHANNELS})")
+            print(f"🎤 音頻串流執行緒啟動 (Rate: {RATE})")
 
             while self.audio_running:
                 try:
-                    # 讀取音頻數據
-                    audio_data = self.audio_stream.read(CHUNK, exception_on_overflow=False)
+                    data = self.audio_stream.read(CHUNK, exception_on_overflow=False)
+                    encoded_data = base64.b64encode(data).decode('utf-8')
 
-                    # 轉換為 base64 並通過 SocketIO 發送
-                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-
+                    # 【修正點 1 & 2】事件名稱改為 'audio_stream'，並補上 rate 和 channels
                     self.socketio.emit('audio_stream', {
-                        'data': audio_base64,
+                        'data': encoded_data,
                         'rate': RATE,
                         'channels': CHANNELS
-                    }, room='controllers')
+                    })
+                    # 稍微 sleep 一下避免 CPU 100%，但不要太久以免延遲
+                    self.socketio.sleep(0.001)
 
-                except Exception as e:
-                    if self.audio_running:
-                        print(f"⚠️ 音頻讀取錯誤: {e}")
+                except Exception as inner_e:
+                    print(f"⚠️ 錄音錯誤: {inner_e}")
                     break
 
         except Exception as e:
-            print(f"❌ 音頻串流錯誤: {e}")
+            print(f"❌ 無法開啟麥克風: {e}")
         finally:
             if self.audio_stream:
                 try:
@@ -1119,10 +1106,7 @@ class WebRemoteControl:
                     self.audio_stream.close()
                 except:
                     pass
-            try:
-                p.terminate()
-            except:
-                pass
+            p.terminate()
 
     def get_local_ip(self):
         """獲取本機的 IP 地址"""

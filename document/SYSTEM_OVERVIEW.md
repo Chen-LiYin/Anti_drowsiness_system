@@ -25,7 +25,7 @@ http://localhost:5000/remote_control?auth=drowsiness2024
 ├──  瞌睡偵測模塊
 │   └── drowsiness_detector.py      # OpenCV + dlib 偵測
 ├──  通知系統模塊
-│   └── notification_system.py      # Telegram/LINE 通知
+│   └── notification_system.py      # Telegram 通知
 ├──  網頁控制模塊
 │   ├── web_remote_control.py       # Flask + SocketIO 後端
 │   └── templates/                  # HTML 前端介面
