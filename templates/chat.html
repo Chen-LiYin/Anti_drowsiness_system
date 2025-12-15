@@ -294,7 +294,7 @@
       const chatStatus = document.getElementById('chat-status');
       const notificationPanel = document.getElementById('notification-panel');
 
-      // 添加通知到面板
+      // 添加重要通知到面板（僅用於投票結果和 URL 連結）
       function addNotificationToPanel(msg, type = 'info', url = null) {
         const item = document.createElement('div');
         item.className = `notification-item ${type}`;
@@ -340,15 +340,67 @@
         }
       }
 
+      // 一般通知使用 Toastify（從右邊彈出）
       function showNotification(msg, type = 'info') {
-        // 使用新的通知面板
-        addNotificationToPanel(msg, type);
+        const colors = {
+          success: 'linear-gradient(90deg, #00b09b, #96c93d)',
+          error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
+          warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
+          info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+        };
+        const bg = colors[type] || colors.info;
+        if (window.Toastify) {
+          Toastify({
+            text: msg,
+            duration: 4000,
+            gravity: 'top',
+            position: 'right',
+            close: true,
+            style: { background: bg },
+          }).showToast();
+        } else {
+          try {
+            console.log('[NOTIF]', type, msg);
+          } catch (e) {}
+          // fallback
+          alert(msg);
+        }
       }
 
-      // 顯示帶連結的通知
+      // 顯示帶連結的 toast（訊息 + 可點擊連結）- 從右邊彈出
       function showLinkToast(message, url, type = 'info') {
-        // 使用新的通知面板
-        addNotificationToPanel(message, type, url);
+        const bg =
+          {
+            success: 'linear-gradient(90deg, #00b09b, #96c93d)',
+            error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
+            warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
+            info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+          }[type] || 'linear-gradient(90deg, #00d4ff, #0099cc)';
+
+        if (window.Toastify) {
+          Toastify({
+            node: (function () {
+              const n = document.createElement('div');
+              const t = document.createTextNode(message + ' ');
+              const a = document.createElement('a');
+              a.href = url;
+              a.target = '_blank';
+              a.style.color = '#fff';
+              a.style.textDecoration = 'underline';
+              a.textContent = '點此開啟';
+              n.appendChild(t);
+              n.appendChild(a);
+              return n;
+            })(),
+            duration: 10000,
+            gravity: 'top',
+            position: 'right',
+            close: true,
+            style: { background: bg },
+          }).showToast();
+        } else {
+          alert(message + '\n' + url);
+        }
       }
 
       function formatTime(isoString) {
@@ -506,7 +558,11 @@
         chatActive = false;
         userVoted = false;
         if (d.top_message) {
-          showNotification(`🏆 獲勝留言: ${d.top_message.message}`, 'success');
+          // 投票結果顯示在面板
+          addNotificationToPanel(
+            `🏆 獲勝留言: ${d.top_message.message} - ${d.top_message.username} (${d.top_message.votes} 票)`,
+            'success'
+          );
           chatStatus.textContent = `🏆 獲勝者: ${d.top_message.username} (${d.top_message.votes} 票)`;
 
           // 如果 payload 包含 control_url 且當前使用者為獲勝者（比對暱稱），顯示控制連結
@@ -525,14 +581,14 @@
           chatStatus.textContent = '💬 隨時可以留言！';
         }, 5000);
       });
-      // 接收控制連結或監控連結
+      // 接收控制連結或監控連結 - 顯示在面板
       socket.on('control_link', (data) => {
         if (data && data.url) {
-          // 用 Toastify 顯示可點擊連結
-          showLinkToast(
+          // 使用面板顯示可點擊連結
+          addNotificationToPanel(
             '🏆 您獲得控制權，點擊以進入控制介面',
-            data.url,
-            'success'
+            'success',
+            data.url
           );
           // 在狀態欄也顯示連結
           chatStatus.innerHTML = `🏆 <a href="${data.url}" style="color:#00d4ff;">點此進入控制介面</a>`;
@@ -541,7 +597,8 @@
 
       socket.on('monitor_link', (data) => {
         if (data && data.url) {
-          showLinkToast('🔎 已收到監控連結（僅觀看）', data.url, 'info');
+          // 使用面板顯示可點擊連結
+          addNotificationToPanel('🔎 已收到監控連結（僅觀看）', 'info', data.url);
           chatStatus.innerHTML = `🔎 <a href="${data.url}" style="color:#00d4ff;">點此進入監控畫面</a>`;
         }
       });
