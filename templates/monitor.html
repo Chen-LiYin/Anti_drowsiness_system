@@ -3,38 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>瞌睡監控 - 智能防瞌睡系統</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <!-- Toastify (local with CDN fallback) -->
-    <link rel="stylesheet" href="/static/vendor/toastify/toastify.css" />
-    <script src="/static/vendor/toastify/toastify.js"></script>
-    <script>
-      (function () {
-        function loadCSS(url) {
-          var l = document.createElement('link');
-          l.rel = 'stylesheet';
-          l.href = url;
-          document.head.appendChild(l);
-        }
-        function loadScript(url, cb) {
-          var s = document.createElement('script');
-          s.src = url;
-          s.onload = cb || function () {};
-          document.head.appendChild(s);
-        }
-        setTimeout(function () {
-          if (!window.Toastify) {
-            loadCSS(
-              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css'
-            );
-            loadScript(
-              'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js'
-            );
-          }
-        }, 150);
-      })();
-    </script>
+    <title>瞌睡監控</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <style>
       * {
         margin: 0;
@@ -43,470 +13,657 @@
       }
 
       body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-        padding: 20px;
+        font-family: 'Microsoft YaHei', Arial, sans-serif;
+        background: #1a1a2e;
+        color: #fff;
+        overflow: hidden;
+        user-select: none;
       }
 
-      .container {
-        max-width: 1400px;
-        margin: 0 auto;
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
       }
 
       .header {
-        text-align: center;
-        color: white;
-        margin-bottom: 30px;
-      }
-
-      .header h1 {
-        font-size: 2.5em;
-        margin-bottom: 10px;
-      }
-
-      .main-content {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 20px;
-      }
-
-      .video-panel,
-      .info-panel {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-      }
-
-      .video-container {
-        position: relative;
-        width: 100%;
-        border-radius: 10px;
-        overflow: hidden;
-        background: #000;
-      }
-
-      #videoFeed {
-        width: 100%;
-        height: auto;
-        display: block;
-      }
-
-      .status-badge {
-        display: inline-block;
-        padding: 10px 20px;
-        border-radius: 25px;
-        font-weight: bold;
-        font-size: 1.2em;
-        margin: 15px 0;
-      }
-
-      .status-alert {
-        background: #28a745;
-        color: white;
-      }
-      .status-tired {
-        background: #ffc107;
-        color: black;
-      }
-      .status-yawning {
-        background: #ff9800;
-        color: white;
-      }
-      .status-drowsy {
-        background: #dc3545;
-        color: white;
-        animation: pulse 1s infinite;
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.6;
-        }
-      }
-
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-        margin-top: 20px;
-      }
-
-      .stat-card {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-      }
-
-      .stat-value {
-        font-size: 2em;
-        font-weight: bold;
-        color: #667eea;
-      }
-
-      .stat-label {
-        color: #666;
-        font-size: 0.9em;
-        margin-top: 5px;
-      }
-
-      .controls {
+        background: linear-gradient(90deg, #16213e 0%, #0f3460 100%);
+        padding: 0.8rem 1rem;
         display: flex;
-        gap: 10px;
-        margin-top: 20px;
-      }
-
-      .btn {
-        flex: 1;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        font-size: 1em;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s;
-      }
-
-      .btn-start {
-        background: #28a745;
-        color: white;
-      }
-
-      .btn-stop {
-        background: #dc3545;
-        color: white;
-      }
-
-      .btn-reset {
-        background: #6c757d;
-        color: white;
-      }
-
-      .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-      }
-
-      .alert-banner {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 20px 30px;
-        background: #dc3545;
-        color: white;
-        border-radius: 10px;
-        font-weight: bold;
-        font-size: 1.2em;
-        display: none;
-        animation: slideIn 0.3s;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         z-index: 1000;
       }
 
-      @keyframes slideIn {
-        from {
-          transform: translateX(400px);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
+      .header h1 {
+        font-size: 1.5rem;
+        color: #00d4ff;
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .connection-status {
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: bold;
+      }
+
+      .connected {
+        background: #27ae60;
+      }
+      .disconnected {
+        background: #e74c3c;
+      }
+      .control-active {
+        background: #f39c12;
+      }
+
+      .video-container {
+        flex: 1;
+        position: relative;
+        background: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #video-stream {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+
+      .video-overlay {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 0.8rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        z-index: 100;
+      }
+
+      .controls-container {
+        height: 150px;
+        background: linear-gradient(90deg, #16213e 0%, #0f3460 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 2rem;
+        padding: 1rem;
+        border-top: 2px solid #00d4ff;
+      }
+
+      .control-hint {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        pointer-events: none;
+        z-index: 50;
+        border: 2px solid #00d4ff;
+      }
+
+      .control-hint h3 {
+        color: #00d4ff;
+        margin-bottom: 0.5rem;
+      }
+
+      .crosshair {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        pointer-events: none;
+        z-index: 60;
+      }
+
+      .crosshair::before,
+      .crosshair::after {
+        content: '';
+        position: absolute;
+        background: rgba(0, 212, 255, 0.8);
+      }
+
+      .crosshair::before {
+        left: 50%;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        transform: translateX(-50%);
+      }
+
+      .crosshair::after {
+        top: 50%;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        transform: translateY(-50%);
+      }
+
+      .center-controls {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .fire-button {
+        width: 100px;
+        height: 100px;
+        border: none;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .fire-button:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(231, 76, 60, 0.6);
+      }
+
+      .fire-button:active:not(:disabled) {
+        transform: scale(0.95);
+      }
+
+      .fire-button:disabled {
+        background: #555;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .fire-cooldown {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 1rem;
+      }
+
+      .settings-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1rem;
+      }
+
+      .setting-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+
+      .setting-label {
+        font-size: 0.8rem;
+        color: #00d4ff;
+        font-weight: bold;
+      }
+
+      .setting-select {
+        padding: 0.5rem;
+        border: 2px solid #00d4ff;
+        border-radius: 5px;
+        background: #16213e;
+        color: #fff;
+        font-size: 0.9rem;
+      }
+
+      .setting-select:focus {
+        outline: none;
+        box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+      }
+
+      .position-display {
+        text-align: center;
+        font-size: 0.8rem;
+        color: #00d4ff;
+      }
+
+      .emergency-controls {
+        position: fixed;
+        top: 70px;
+        right: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 200;
+      }
+
+      .emergency-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e74c3c;
+        background: rgba(231, 76, 60, 0.2);
+        color: #fff;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+      }
+
+      .emergency-btn:hover {
+        background: rgba(231, 76, 60, 0.5);
+      }
+
+      .control-request {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        z-index: 1000;
+        display: none;
+      }
+
+      .control-btn {
+        background: linear-gradient(45deg, #00d4ff, #0099cc);
+        border: none;
+        color: white;
+        padding: 0.8rem 1.5rem;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 1rem;
+        margin: 0.5rem;
+        transition: all 0.3s ease;
+      }
+
+      .control-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
       }
 
       @media (max-width: 768px) {
-        .main-content {
-          grid-template-columns: 1fr;
+        .controls-container {
+          height: 180px;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 0.5rem;
+          padding: 0.5rem;
         }
+
+        .joystick {
+          width: 80px;
+          height: 80px;
+        }
+
+        .joystick-knob {
+          width: 25px;
+          height: 25px;
+        }
+
+        .fire-button {
+          width: 70px;
+          height: 70px;
+          font-size: 1rem;
+        }
+
+        .header h1 {
+          font-size: 1.2rem;
+        }
+      }
+
+      .notification {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid;
+        padding: 1rem;
+        border-radius: 8px;
+        z-index: 500;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        max-width: 300px;
+      }
+
+      .notification.show {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .notification.success {
+        border-color: #27ae60;
+      }
+      .notification.error {
+        border-color: #e74c3c;
+      }
+      .notification.warning {
+        border-color: #f39c12;
+      }
+      .notification.info {
+        border-color: #00d4ff;
       }
     </style>
   </head>
   <body>
-    <div class="container">
+    <div class="main-container">
+      <!-- 標頭 -->
       <div class="header">
-        <h1>🎯 智能防瞌睡監控系統</h1>
-        <p>即時瞌睡偵測與警報</p>
+        <h1>瞌睡監控</h1>
+        <div class="status-indicator">
+          <div class="connection-status disconnected" id="connection-status">
+            連接中...
+          </div>
+          <div class="position-display" id="position-display">
+            Pan: -- | Tilt: --
+          </div>
+        </div>
       </div>
 
-      <div class="main-content">
-        <!-- 視訊面板 -->
-        <div class="video-panel">
-          <h2>📹 即時監控</h2>
-          <div class="video-container">
-            <img id="videoFeed" src="/video_feed" alt="視訊串流" />
-          </div>
+      <!-- 視訊串流 -->
+      <div class="video-container" id="video-container">
+        <img
+          id="video-stream"
+          src="/video_feed?auth={{ config.CONTROL_PASSWORD }}"
+          alt="視訊串流"
+        />
 
-          <div class="controls">
-            <button class="btn btn-start" onclick="startMonitoring()">
-              ▶️ 開始監控
-            </button>
-            <button class="btn btn-stop" onclick="stopMonitoring()">
-              ⏸️ 停止監控
-            </button>
-            <button class="btn btn-reset" onclick="resetStats()">
-              🔄 重置統計
-            </button>
-          </div>
-        </div>
-
-        <!-- 資訊面板 -->
-        <div class="info-panel">
-          <h2>📊 即時資訊</h2>
-
-          <!-- 狀態顯示 -->
-          <div style="text-align: center">
-            <span id="statusBadge" class="status-badge status-alert"
-              >準備中...</span
-            >
-          </div>
-
-          <!-- 即時數據 -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value" id="earValue">0.000</div>
-              <div class="stat-label">眼睛長寬比 (EAR)</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="marValue">0.000</div>
-              <div class="stat-label">嘴巴長寬比 (MAR)</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="eyeCounter">0</div>
-              <div class="stat-label">閉眼幀數</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="yawnCounter">0</div>
-              <div class="stat-label">打哈欠幀數</div>
-            </div>
-          </div>
-
-          <!-- 事件統計 -->
-          <h3 style="margin-top: 30px; margin-bottom: 15px">📈 事件統計</h3>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value" id="totalDrowsy" style="color: #dc3545">
-                0
-              </div>
-              <div class="stat-label">瞌睡事件</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="totalYawns" style="color: #ff9800">
-                0
-              </div>
-              <div class="stat-label">打哈欠事件</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="totalFrames">0</div>
-              <div class="stat-label">總幀數</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="fps">0</div>
-              <div class="stat-label">FPS</div>
-            </div>
-          </div>
-
-          <!-- 運行時間 -->
-          <div style="margin-top: 20px; text-align: center; color: #666">
-            <p>
-              運行時間:
-              <span id="runtime" style="font-weight: bold">00:00:00</span>
-            </p>
-            <p style="font-size: 0.9em; margin-top: 5px">
-              連接狀態:
-              <span id="connectionStatus" style="color: #28a745">●</span>
-            </p>
-          </div>
-        </div>
+        ＼
       </div>
     </div>
 
-    <!-- 警報橫幅 -->
-    <div id="alertBanner" class="alert-banner">⚠️ 瞌睡警報！請保持清醒！</div>
-
     <script>
-      // WebSocket 連接
+      // SocketIO 連接
       const socket = io();
 
-      // 狀態對應
-      const statusConfig = {
-        Alert: { class: 'status-alert', text: '✅ 清醒' },
-        Tired: { class: 'status-tired', text: '😴 疲倦' },
-        Yawning: { class: 'status-yawning', text: '🥱 打哈欠' },
-        Drowsy: { class: 'status-drowsy', text: '⚠️ 瞌睡中' },
-        'No Face': { class: 'status-badge', text: '❌ 未偵測到臉部' },
-      };
+      // 控制狀態（直接啟用）
+      let controlActive = true;
+      let panAngle = 90;
+      let tiltAngle = 90;
+      let fireReady = true;
 
-      // 運行時間計時器
-      let runtimeInterval = null;
-      let startTime = null;
+      function handleFire() {
+        if (!fireReady) return;
 
-      // WebSocket 事件處理
-      socket.on('connect', function () {
-        console.log('✅ 已連接到伺服器');
-        $('#connectionStatus').css('color', '#28a745').text('●');
+        const mode = 'single';
+        const sound = document.getElementById('sound-effect').value;
+        socket.emit('fire_control', { mode, sound });
+      }
+
+      // 頁面載入後初始化
+      window.addEventListener('load', () => {
+        initVirtualControls();
       });
 
-      // 顯示可點擊的 Toastify 連結
-      function showLinkToast(message, url, type = 'info') {
-        var bg =
-          {
-            success: 'linear-gradient(90deg, #00b09b, #96c93d)',
-            error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
-            warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
-            info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
-          }[type] || 'linear-gradient(90deg, #00d4ff, #0099cc)';
+      // 窗口大小改變時重新調整 Canvas
+      window.addEventListener('resize', () => {
+        const canvas = document.getElementById('joystick-canvas');
+        const videoContainer = document.getElementById('video-container');
 
-        if (window.Toastify) {
-          Toastify({
-            text: message,
-            duration: 10000,
-            close: true,
-            gravity: 'top',
-            position: 'right',
-            style: { background: bg },
-            node: (function () {
-              var n = document.createElement('div');
-              var a = document.createElement('a');
-              a.href = url;
-              a.target = '_blank';
-              a.style.color = '#fff';
-              a.style.textDecoration = 'underline';
-              a.textContent = ' 點此開啟';
-              n.appendChild(document.createTextNode(message));
-              n.appendChild(a);
-              return n;
-            })(),
-          }).showToast();
+        if (canvas && videoContainer) {
+          const rect = videoContainer.getBoundingClientRect();
+          canvas.width = rect.width;
+          canvas.height = rect.height;
+
+          // 更新搖桿和按鈕位置（左下角和右下角）
+          if (joystick && fireButton) {
+            joystick.baseX = 80;
+            joystick.baseY = canvas.height - 80;
+            joystick.stickX = 80;
+            joystick.stickY = canvas.height - 80;
+            fireButton.x = canvas.width - 80;
+            fireButton.y = canvas.height - 80;
+          }
+        }
+      });
+
+      // SocketIO 事件處理
+      socket.on('connect', () => {
+        updateConnectionStatus('control-active', '控制中');
+        // 自動請求控制權限
+        socket.emit('control_start');
+      });
+
+      socket.on('disconnect', () => {
+        updateConnectionStatus('disconnected', '連接斷開');
+      });
+
+      socket.on('control_granted', (data) => {
+        // 控制權已授予（靜默處理，無需通知）
+        controlActive = true;
+      });
+
+      socket.on('emergency_control_available', (data) => {
+        // 緊急控制模式通知
+        showNotification('🚨 ' + data.message, 'error');
+      });
+
+      socket.on('position_update', (data) => {
+        panAngle = data.pan;
+        tiltAngle = data.tilt;
+        updatePositionDisplay();
+      });
+
+      socket.on('fire_success', (data) => {
+        showNotification('🎯 射擊成功！', 'success');
+        // 設置射擊冷卻
+        fireReady = false;
+        if (fireButton) {
+          fireButton.setCooldown(true);
+        }
+        // 0.5 秒後恢復
+        setTimeout(() => {
+          fireReady = true;
+          if (fireButton) {
+            fireButton.setCooldown(false);
+          }
+        }, 500);
+      });
+
+      socket.on('fire_denied', (data) => {
+        showNotification('🚫 ' + data.message, 'warning');
+      });
+
+      socket.on('fire_error', (data) => {
+        showNotification('❌ ' + data.message, 'error');
+      });
+
+      socket.on('status_update', (data) => {
+        fireReady = data.fire_ready;
+        updateFireButton();
+      });
+
+      // UI 更新函數
+      function updateConnectionStatus(status, text) {
+        const statusEl = document.getElementById('connection-status');
+        statusEl.className = 'connection-status ' + status;
+        statusEl.textContent = text;
+      }
+
+      function updatePositionDisplay() {
+        document.getElementById(
+          'position-display'
+        ).textContent = `Pan: ${panAngle.toFixed(
+          0
+        )}° | Tilt: ${tiltAngle.toFixed(0)}°`;
+      }
+
+      function updateFireButton() {
+        const button = document.getElementById('fire-button');
+        const cooldown = document.getElementById('fire-cooldown');
+
+        if (fireReady) {
+          button.disabled = false;
+          cooldown.style.display = 'none';
         } else {
-          console.log(message, url);
+          button.disabled = true;
+          cooldown.style.display = 'flex';
         }
       }
 
-      socket.on('disconnect', function () {
-        console.log('❌ 已斷開連接');
-        $('#connectionStatus').css('color', '#dc3545').text('●');
-      });
+      function showNotification(message, type = 'info') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
 
-      socket.on('detection_result', function (data) {
-        // 更新狀態標籤
-        const status = statusConfig[data.state];
-        $('#statusBadge')
-          .removeClass()
-          .addClass('status-badge ' + status.class)
-          .text(status.text);
+        // 顯示通知
+        setTimeout(() => notification.classList.add('show'), 100);
 
-        // 更新即時數據
-        $('#earValue').text(data.ear.toFixed(3));
-        $('#marValue').text(data.mar.toFixed(3));
-        $('#eyeCounter').text(data.eye_counter);
-        $('#yawnCounter').text(data.yawn_counter);
-
-        // 更新統計
-        $('#totalDrowsy').text(data.total_drowsy);
-        $('#totalYawns').text(data.total_yawns);
-        $('#fps').text(data.fps);
-      });
-
-      socket.on('drowsy_alert', function (data) {
-        console.warn('⚠️ 瞌睡警報！', data);
-        showAlert();
-
-        // 可選：播放音效
-        // playAlertSound();
-      });
-
-      socket.on('yawn_warning', function (data) {
-        console.log('🥱 打哈欠警告', data);
-      });
-
-      // 接收監控或控制連結
-      socket.on('monitor_link', function (data) {
-        if (data && data.url) {
-          showLinkToast('🔎 已收到監控連結', data.url, 'info');
-        }
-      });
-
-      socket.on('control_link', function (data) {
-        if (data && data.url) {
-          showLinkToast('🏆 已收到控制連結，點擊開啟', data.url, 'success');
-        }
-      });
-
-      // 功能函數
-      function startMonitoring() {
-        $.post('/api/start', function (response) {
-          console.log('✅', response.message);
-          startTime = Date.now();
-          if (!runtimeInterval) {
-            runtimeInterval = setInterval(updateRuntime, 1000);
-          }
-        });
-      }
-
-      function stopMonitoring() {
-        $.post('/api/stop', function (response) {
-          console.log('⏸️', response.message);
-          if (runtimeInterval) {
-            clearInterval(runtimeInterval);
-            runtimeInterval = null;
-          }
-        });
-      }
-
-      function resetStats() {
-        if (confirm('確定要重置統計數據嗎？')) {
-          $.post('/api/reset_stats', function (response) {
-            console.log('🔄', response.message);
-            // 重置顯示
-            $('#totalDrowsy').text('0');
-            $('#totalYawns').text('0');
-            $('#totalFrames').text('0');
-            startTime = Date.now();
-          });
-        }
-      }
-
-      function showAlert() {
-        $('#alertBanner').fadeIn();
-        setTimeout(function () {
-          $('#alertBanner').fadeOut();
+        // 3秒後隱藏
+        setTimeout(() => {
+          notification.classList.remove('show');
         }, 3000);
       }
 
-      function updateRuntime() {
-        if (startTime) {
-          const elapsed = Date.now() - startTime;
-          const hours = Math.floor(elapsed / 3600000);
-          const minutes = Math.floor((elapsed % 3600000) / 60000);
-          const seconds = Math.floor((elapsed % 60000) / 1000);
+      // 按鈕事件
+      document.getElementById('fire-button').addEventListener('click', () => {
+        if (!fireReady) return;
 
-          const timeStr =
-            String(hours).padStart(2, '0') +
-            ':' +
-            String(minutes).padStart(2, '0') +
-            ':' +
-            String(seconds).padStart(2, '0');
+        const mode = 'single'; // 預設射擊模式
+        const sound = document.getElementById('sound-effect').value;
 
-          $('#runtime').text(timeStr);
+        socket.emit('fire_control', { mode, sound });
+      });
+
+      document
+        .getElementById('sound-effect')
+        .addEventListener('change', (e) => {
+          socket.emit('sound_change', { sound: e.target.value });
+        });
+
+      document.getElementById('stop-all').addEventListener('click', () => {
+        socket.emit('control_end');
+        showNotification('🛑 已停止所有動作', 'info');
+      });
+
+      document.getElementById('center-turret').addEventListener('click', () => {
+        socket.emit('pan_control', { angle: 90 });
+        socket.emit('tilt_control', { angle: 90 });
+        showNotification('🎯 雲台已回中心', 'info');
+      });
+
+      // 視訊串流錯誤處理
+      document.getElementById('video-stream').addEventListener('error', () => {
+        document.getElementById('stream-info').textContent =
+          '視訊串流暫時不可用';
+      });
+
+      document.getElementById('video-stream').addEventListener('load', () => {
+        document.getElementById('stream-info').textContent = '即時串流中';
+      });
+
+      // ============ 音頻串流功能 ============
+      let audioContext = null;
+      let audioEnabled = false;
+      let audioQueue = [];
+      let isProcessingAudio = false;
+
+      // 初始化 AudioContext
+      function initAudioContext() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          console.log('🎤 AudioContext 已初始化');
+        }
+        return audioContext;
+      }
+
+      // 播放音頻數據
+      function playAudioData(base64Data, sampleRate, channels) {
+        try {
+          // 解碼 base64
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          // 轉換為 Int16Array（PCM 16-bit）
+          const int16Array = new Int16Array(bytes.buffer);
+
+          // 轉換為 Float32Array（AudioContext 需要）
+          const float32Array = new Float32Array(int16Array.length);
+          for (let i = 0; i < int16Array.length; i++) {
+            float32Array[i] = int16Array[i] / 32768.0;
+          }
+
+          // 創建 AudioBuffer
+          const audioBuffer = audioContext.createBuffer(
+            channels,
+            float32Array.length,
+            sampleRate
+          );
+          audioBuffer.getChannelData(0).set(float32Array);
+
+          // 播放
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          source.start(0);
+        } catch (e) {
+          console.error('音頻播放錯誤:', e);
         }
       }
 
-      // 定期獲取統計數據
-      setInterval(function () {
-        $.get('/api/stats', function (data) {
-          $('#totalFrames').text(data.total_frames.toLocaleString());
-        });
-      }, 5000);
+      // 接收音頻串流
+      socket.on('audio_stream', (data) => {
+        if (!audioEnabled) return;
 
-      // 頁面載入完成
-      $(document).ready(function () {
-        console.log('📱 監控介面已載入');
+        try {
+          playAudioData(data.data, data.rate, data.channels);
+        } catch (e) {
+          console.error('音頻處理錯誤:', e);
+        }
       });
+
+      // 音頻狀態回應
+      socket.on('audio_status', (data) => {
+        console.log('音頻狀態更新:', data);
+        if (data.enabled) {
+          audioEnabled = true;
+          document.getElementById('audio-toggle').style.background = '#f44336';
+          document.getElementById('audio-toggle').textContent = '🔇 停用音頻';
+        } else {
+          audioEnabled = false;
+          document.getElementById('audio-toggle').style.background = '#4CAF50';
+          document.getElementById('audio-toggle').textContent = '🔊 啟用音頻';
+        }
+        showNotification(data.message, data.enabled ? 'success' : 'info');
+      });
+
+      // 音頻切換按鈕
+      document
+        .getElementById('audio-toggle')
+        .addEventListener('click', function () {
+          const enable = !audioEnabled;
+
+          if (enable) {
+            // 初始化 AudioContext（必須在用戶交互時初始化）
+            initAudioContext();
+            // 發送啟用請求到後端
+            socket.emit('audio_enable', { enable: true });
+            showNotification('🎤 正在啟動音頻串流...', 'info');
+          } else {
+            // 發送停用請求到後端
+            socket.emit('audio_enable', { enable: false });
+          }
+        });
     </script>
   </body>
 </html>

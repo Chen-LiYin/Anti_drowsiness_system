@@ -54,6 +54,87 @@
         justify-content: flex-start;
         padding-top: 40px;
       }
+      .notification-panel {
+        width: 360px;
+        max-width: 95%;
+        background: rgba(22, 33, 62, 0.95);
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(0, 212, 255, 0.12);
+        margin-bottom: 16px;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+      }
+      .notification-panel.show {
+        display: block;
+      }
+      .notification-item {
+        padding: 10px 12px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        animation: slideIn 0.3s ease-out;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .notification-item.info {
+        background: linear-gradient(90deg, rgba(0, 212, 255, 0.2), rgba(0, 153, 204, 0.2));
+        border-left: 3px solid #00d4ff;
+      }
+      .notification-item.success {
+        background: linear-gradient(90deg, rgba(0, 176, 155, 0.2), rgba(150, 201, 61, 0.2));
+        border-left: 3px solid #00b09b;
+      }
+      .notification-item.warning {
+        background: linear-gradient(90deg, rgba(243, 156, 18, 0.2), rgba(241, 196, 15, 0.2));
+        border-left: 3px solid #f39c12;
+      }
+      .notification-item.error {
+        background: linear-gradient(90deg, rgba(255, 95, 109, 0.2), rgba(255, 195, 113, 0.2));
+        border-left: 3px solid #ff5f6d;
+      }
+      .notification-text {
+        flex: 1;
+        color: #fff;
+      }
+      .notification-link {
+        background: rgba(0, 212, 255, 0.3);
+        color: #00d4ff;
+        padding: 6px 12px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        transition: all 0.3s;
+      }
+      .notification-link:hover {
+        background: rgba(0, 212, 255, 0.5);
+        color: #fff;
+      }
+      .notification-close {
+        background: transparent;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 0 4px;
+      }
+      .notification-close:hover {
+        color: #fff;
+      }
       .chat-panel {
         width: 360px;
         max-width: 95%;
@@ -134,6 +215,9 @@
   </head>
   <body>
     <div class="chat-sidebar">
+      <!-- 通知面板 -->
+      <div class="notification-panel" id="notification-panel"></div>
+
       <div class="chat-panel">
         <div class="chat-header">
           <h3>💬 互動聊天室</h3>
@@ -208,67 +292,63 @@
       const chatInput = document.getElementById('chat-input');
       const chatSendBtn = document.getElementById('chat-send-btn');
       const chatStatus = document.getElementById('chat-status');
+      const notificationPanel = document.getElementById('notification-panel');
 
-      function showNotification(msg, type = 'info') {
-        const colors = {
-          success: 'linear-gradient(90deg, #00b09b, #96c93d)',
-          error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
-          warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
-          info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
+      // 添加通知到面板
+      function addNotificationToPanel(msg, type = 'info', url = null) {
+        const item = document.createElement('div');
+        item.className = `notification-item ${type}`;
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'notification-text';
+        textSpan.textContent = msg;
+        item.appendChild(textSpan);
+
+        if (url) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.className = 'notification-link';
+          link.textContent = '開啟';
+          item.appendChild(link);
+        }
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'notification-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.onclick = () => {
+          item.remove();
+          if (notificationPanel.children.length === 0) {
+            notificationPanel.classList.remove('show');
+          }
         };
-        const bg = colors[type] || colors.info;
-        if (window.Toastify) {
-          Toastify({
-            text: msg,
-            duration: 4000,
-            gravity: 'top',
-            position: 'right',
-            close: true,
-            style: { background: bg },
-          }).showToast();
-        } else {
-          try {
-            console.log('[NOTIF]', type, msg);
-          } catch (e) {}
-          // fallback
-          alert(msg);
+        item.appendChild(closeBtn);
+
+        notificationPanel.appendChild(item);
+        notificationPanel.classList.add('show');
+
+        // 自動移除（如果沒有 URL）
+        if (!url) {
+          setTimeout(() => {
+            if (item.parentNode) {
+              item.remove();
+              if (notificationPanel.children.length === 0) {
+                notificationPanel.classList.remove('show');
+              }
+            }
+          }, 8000);
         }
       }
 
-      // 顯示帶連結的 toast（訊息 + 可點擊連結）
-      function showLinkToast(message, url, type = 'info') {
-        const bg =
-          {
-            success: 'linear-gradient(90deg, #00b09b, #96c93d)',
-            error: 'linear-gradient(90deg, #ff5f6d, #ffc371)',
-            warning: 'linear-gradient(90deg, #f39c12, #f1c40f)',
-            info: 'linear-gradient(90deg, #00d4ff, #0099cc)',
-          }[type] || 'linear-gradient(90deg, #00d4ff, #0099cc)';
+      function showNotification(msg, type = 'info') {
+        // 使用新的通知面板
+        addNotificationToPanel(msg, type);
+      }
 
-        if (window.Toastify) {
-          Toastify({
-            node: (function () {
-              const n = document.createElement('div');
-              const t = document.createTextNode(message + ' ');
-              const a = document.createElement('a');
-              a.href = url;
-              a.target = '_blank';
-              a.style.color = '#fff';
-              a.style.textDecoration = 'underline';
-              a.textContent = '點此開啟';
-              n.appendChild(t);
-              n.appendChild(a);
-              return n;
-            })(),
-            duration: 10000,
-            gravity: 'top',
-            position: 'right',
-            close: true,
-            style: { background: bg },
-          }).showToast();
-        } else {
-          alert(message + '\n' + url);
-        }
+      // 顯示帶連結的通知
+      function showLinkToast(message, url, type = 'info') {
+        // 使用新的通知面板
+        addNotificationToPanel(message, type, url);
       }
 
       function formatTime(isoString) {
@@ -420,7 +500,7 @@
       socket.on('chat_timer_ended', (d) => {
         showNotification(d.message, 'info');
         socket.emit('get_chat_status');
-        chatStatus.textContent = '⏰ 投票已截止 - 等待主人醒來結算';
+        chatStatus.textContent = ' 投票已截止 - 等待主人醒來結算';
       });
       socket.on('chat_session_ended', (d) => {
         chatActive = false;
