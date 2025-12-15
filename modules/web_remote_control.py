@@ -1084,44 +1084,56 @@ class WebRemoteControl:
         print("🎤 音頻串流已停止")
 
     def stream_audio(self):
-        """後端錄音並推播"""
-        CHUNK = 1024
-        FORMAT = pyaudio.paInt16
-        CHANNELS = 1
-        RATE = 44100
+        """後端錄音並推播 (已針對 USB PnP Sound Device ID:2 設定)"""
+        
+        # ============ 硬體參數設定 ============
+        MIC_INDEX = 2          # ★★★ 填入你剛剛查到的 ID
+        CHUNK = 1024           # 每次讀取的封包大小
+        FORMAT = pyaudio.paInt16 
+        CHANNELS = 1           # 你的麥克風是單聲道
+        RATE = 44100           # 你的麥克風預設採樣率
+        # ====================================
 
         p = pyaudio.PyAudio()
-
+        
         try:
-            # 確保這裡 input_device_index 設定正確，或乾脆不寫讓它抓預設
+            print(f"🎤 嘗試開啟裝置 ID: {MIC_INDEX} (Rate: {RATE})")
+            
+            # 開啟音訊串流
             self.audio_stream = p.open(format=FORMAT,
-                                      channels=CHANNELS,
-                                      rate=RATE,
-                                      input=True,
-                                      frames_per_buffer=CHUNK)
-
-            print(f"🎤 音頻串流執行緒啟動 (Rate: {RATE})")
-
+                                     channels=CHANNELS,
+                                     rate=RATE,
+                                     input=True,
+                                     input_device_index=MIC_INDEX, # ★★★ 指定 ID 2
+                                     frames_per_buffer=CHUNK)
+            
+            print(f"✅ 樹莓派錄音啟動成功！正在推流中...")
+            
             while self.audio_running:
                 try:
+                    # 讀取數據 (exception_on_overflow=False 防止樹莓派忙碌時崩潰)
                     data = self.audio_stream.read(CHUNK, exception_on_overflow=False)
+                    
+                    # 轉碼
                     encoded_data = base64.b64encode(data).decode('utf-8')
-
-                    # 【修正點 1 & 2】事件名稱改為 'audio_stream'，並補上 rate 和 channels
+                    
+                    # 發送 (強制廣播給所有網頁)
                     self.socketio.emit('audio_stream', {
                         'data': encoded_data,
                         'rate': RATE,
                         'channels': CHANNELS
-                    })
-                    # 稍微 sleep 一下避免 CPU 100%，但不要太久以免延遲
+                    }, namespace='/', broadcast=True)
+                    
+                    # 極短暫睡眠釋放 CPU
                     self.socketio.sleep(0.001)
-
+                    
                 except Exception as inner_e:
-                    print(f"⚠️ 錄音錯誤: {inner_e}")
-                    break
-
+                    print(f"⚠️ 錄音迴圈錯誤: {inner_e}")
+                    continue
+                    
         except Exception as e:
-            print(f"❌ 無法開啟麥克風: {e}")
+            print(f"❌ 無法開啟麥克風 (ID: {MIC_INDEX}): {e}")
+            print("💡 請檢查 USB 麥克風是否鬆脫，或嘗試重新插拔")
         finally:
             if self.audio_stream:
                 try:
@@ -1130,7 +1142,7 @@ class WebRemoteControl:
                 except:
                     pass
             p.terminate()
-
+            print("🛑 錄音執行緒已結束")
     def get_local_ip(self):
         """獲取本機的 IP 地址"""
         try:
