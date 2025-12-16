@@ -34,6 +34,7 @@ https://youtu.be/X8LtaIqvhPk
 - [調整參數](#調整參數)
 - [故障排除](#故障排除)
 - [資料夾結構](#資料夾結構)
+- [References](#References)
 - [安全提醒](#安全提醒)
 - [樹梅派設定](#樹梅派設定)
 
@@ -532,6 +533,37 @@ anti_drowsiness_system/
     ├── recordings/                     # 錄影儲存
     └── events.json                     # 事件記錄
 ```
+
+## References
+
+● Soukupová, T., & Čech, J. (2016). "Real-Time Eye Blink Detection using
+Facial Landmarks." 21st Computer Vision Winter Workshop, Slovenia.
+
+● Flask Web Framework. (2024). "Flask Documentation."
+https://flask.palletsprojects.com/
+
+● Flask-SocketIO. (2024). "Flask-SocketIO Documentation."
+https://flask-socketio.readthedocs.io/
+
+● WebSocket Protocol. (2024). "The WebSocket Protocol - RFC 6455."
+https://tools.ietf.org/html/rfc6455
+
+● Telegram Bot API. (2024). "Telegram Bot API Documentation."
+https://core.telegram.org/bots/api
+
+● SparkFun Electronics. (2024). "Servo Motor Control Tutorials."
+https://learn.sparkfun.com/tutorials/hobby-servo-tutorial
+
+● GitHub - Driver Drowsiness Detection. (2024). "Open Source Drowsiness
+Detection."
+https://github.com/Kathirvelthangaraju/Driver-Drowsiness-Detection
+
+● Hackster.io. "Raspberry Pi Sentry Gun Projects."
+https://www.hackster.io/hackershack/raspberry-pi-motion-tracking-gun-turret-7
+7fb0b
+
+● YouTube - 雲台水槍. "Pan-Tilt Water Gun Turret Build."
+https://www.youtube.com/watch?v=PQKDqnjwUr8
 
 ## 安全提醒
 
